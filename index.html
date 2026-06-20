@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actividad: Extracción Creativa - Simulador Estratégico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .float-animation { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%,100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-4px) rotate(1deg); } }
+        .room-container { position: relative; overflow: hidden; border-radius: 1rem; border: 1px solid #334155; background-color: #0b0f19; }
+        .magnifying-glass { width: 140px; height: 140px; border: 4px solid #f59e0b; border-radius: 50%; position: absolute; pointer-events: none; box-shadow: 0 0 25px rgba(245,158,11,0.5), inset 0 0 15px rgba(0,0,0,0.6); display: none; z-index: 40; backdrop-filter: brightness(1.2) contrast(1.15); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        .magnifying-glass.on-hotspot { border-color: #10b981; box-shadow: 0 0 35px rgba(16,185,129,.8), inset 0 0 15px rgba(0,0,0,0.4); animation: pulseFound 0.45s ease-in-out; }
+        @keyframes pulseFound { 0% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.08); } 100% { transform: translate(-50%,-50%) scale(1); } }
+        @keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+        .confetti-piece { position: fixed; top: -5vh; z-index: 9999; pointer-events: none; animation: confetti-fall 4s linear forwards; }
+        .fade-transition { transition: opacity 0.25s ease, transform 0.25s ease; }
+        @keyframes glimmer { 0%,100% { opacity: 0; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.05); } }
+        .hotspot-glimmer::after { content: '✦'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; color: #f59e0b; pointer-events: none; animation: glimmer 1.4s ease-in-out infinite; text-shadow: 0 0 12px rgba(245,158,11,0.9); }
+        .hotspot-glimmer { position: relative; }
+        #explore-guide { transition: opacity 0.4s ease, max-height 0.5s ease; overflow: hidden; max-height: 200px; }
+        #explore-guide.guide-hidden { opacity: 0; max-height: 0; pointer-events: none; }
+        @keyframes slotPop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 70% { transform: scale(0.96); } 100% { transform: scale(1); } }
+        .slot-pop { animation: slotPop 0.35s ease-out; }
+
+        /* ── Estilos del modal de susurro ── */
+        /* Susurro — tono crema cálido, cursiva, protagonista */
+        .whisper-text { font-family: 'Inter', sans-serif; font-size: 17px; line-height: 1.9; color: #e7dfd2; font-style: italic; letter-spacing: -0.01em; }
+        .whisper-text strong { font-style: normal; color: #f8fafc; font-weight: 700; }
+
+        /* Pasos — blanco neutro, más pequeño, peso diferenciado */
+        .step-question { font-size: 13px; color: #f8fafc; font-weight: 500; line-height: 1.6; margin-bottom: 12px; }
+        .step-label-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 10px; border-radius: 6px; display: inline-flex; align-items: center; margin-bottom: 10px; }
+
+        .step-option { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid #1e293b; background: #0f172a; cursor: pointer; transition: all 0.2s ease; }
+        .step-option:hover { border-color: #334155; background: #1e293b; }
+        .step-option.selected { border-color: #d8d1c2; background: #1a1f2e; }
+        .step-option input[type="radio"] { display: none; }
+        .step-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #334155; background: transparent; flex-shrink: 0; margin-top: 2px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .step-option.selected .step-radio { border-color: #d8d1c2; background: #d8d1c2; }
+        .step-option.selected .step-radio::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #0f172a; display: block; }
+        .step-label { font-size: 13px; color: #94a3b8; line-height: 1.5; }
+        .step-option.selected .step-label { color: #e2e8f0; }
+
+        .step-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 6px; margin-bottom: 8px; }
+
+        .open-field { width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #e2e8f0; resize: none; outline: none; line-height: 1.6; transition: border-color 0.2s; font-family: 'Inter', sans-serif; }
+        .open-field::placeholder { color: #334155; }
+        .open-field:focus { border-color: #d8d1c2; }
+
+        .step-divider { height: 1px; background: #1e293b; margin: 16px 0; }
+
+        @keyframes whisperIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .whisper-animate { animation: whisperIn 0.5s ease-out forwards; }
+
+        /* Modal de victoria con pasos */
+        .victory-step { display: none; }
+        .victory-step.active { display: block; }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-[#d8d1c2] selection:text-slate-950">
+
+    <!-- Mensaje móvil -->
+    <div class="fixed inset-0 z-[999] bg-slate-950 flex items-center justify-center p-8 text-center md:hidden">
+        <div class="space-y-4">
+            <i class="ph-light ph-monitor text-5xl text-amber-400"></i>
+            <h2 class="text-white font-bold text-xl">Experiencia optimizada para escritorio</h2>
+            <p class="text-slate-400 text-sm leading-relaxed">Esta actividad requiere una pantalla más grande. Ábrela desde tu computadora.</p>
+        </div>
+    </div>
+
+    <header class="bg-slate-950/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-[#d8d1c2] text-slate-950 p-2.5 rounded-xl font-black text-xl shadow-lg shadow-amber-500/10 flex items-center justify-center"><i class="ph-light ph-lightbulb"></i></div>
+                <div>
+                    <span class="text-xs font-bold tracking-widest text-amber-500 uppercase">Actividad: Pensamiento Estratégico en la Resolución de Problemas</span>
+                    <h1 class="text-xl font-extrabold tracking-tight text-white">Extracción Creativa</h1>
+                </div>
+            </div>
+            <nav class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button onclick="changePhase('intro')" id="btn-phase-intro" class="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 bg-[#d8d1c2] text-slate-950 shadow-md"><i class="ph-light ph-presentation"></i> Instrucciones</button>
+                <button onclick="changePhase('sandbox')" id="btn-phase-sandbox" class="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-white"><i class="ph-light ph-magnifying-glass"></i> Investigar Aula</button>
+                <button onclick="changePhase('reflection')" id="btn-phase-reflection" class="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-white"><i class="ph-light ph-chats-teardrop"></i> Pizarra de Reflexión</button>
+                <button onclick="toggleToolbox()" class="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-amber-400 hover:bg-[#d8d1c2]/10"><i class="ph-light ph-toolbox"></i> Rutina Estratégica</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Alertas -->
+    <div id="alert-box" class="fixed bottom-6 left-6 z-[100] max-w-sm transform translate-y-24 opacity-0 transition-all duration-500 pointer-events-none">
+        <div id="alert-card" class="p-4 rounded-xl border border-amber-500/30 bg-slate-900/95 text-amber-200 flex items-start gap-3 shadow-2xl backdrop-blur-md">
+            <div id="alert-icon" class="text-xl mt-0.5"></div>
+            <div><h4 id="alert-title" class="font-bold text-xs text-white uppercase tracking-wider">Alerta</h4><p id="alert-message" class="text-[14px] text-slate-300 mt-1 leading-relaxed"></p></div>
+        </div>
+    </div>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+        <!-- FASE 1: INSTRUCCIONES -->
+        <section id="phase-intro" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
+            <div class="lg:col-span-7 space-y-6">
+                <div class="inline-flex items-center gap-2 bg-[#d8d1c2]/10 text-amber-400 border border-amber-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide uppercase"><i class="ph-fill ph-target"></i> Caso Práctico</div>
+                <h2 class="text-4xl md:text-5xl font-black text-white leading-tight">¿Cómo extraer la pelota?</h2>
+                <p class="text-slate-300 text-lg leading-relaxed">Hay una pelota de tenis atrapada al fondo de un <strong class="text-amber-400">tubo metálico de conducción eléctrica</strong> — 60 cm de profundidad, paredes de acero, base sellada. No puedes meterle las manos ni moverlo de su sitio. Explora la sala de juntas, descubre qué materiales hay disponibles y prueba combinaciones en la mesa de trabajo.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div class="bg-slate-900/50 p-4 rounded-xl border border-red-500/20 flex gap-3"><div class="text-red-400 text-2xl mt-1"><i class="ph-light ph-hand-palm"></i></div><div><h4 class="font-bold text-white text-sm">Sin Manos Directas</h4><p class="text-xs text-slate-400 mt-1">El diámetro interno del tubo no permite introducir la mano ni los dedos.</p></div></div>
+                    <div class="bg-slate-900/50 p-4 rounded-xl border border-red-500/20 flex gap-3"><div class="text-red-400 text-2xl mt-1"><i class="ph-light ph-arrows-out-cardinal"></i></div><div><h4 class="font-bold text-white text-sm">Tubo Fijo</h4><p class="text-xs text-slate-400 mt-1">El tubo está anclado a su base. No puedes voltearlo, inclinarlo ni moverlo.</p></div></div>
+                    <div class="bg-slate-900/50 p-4 rounded-xl border border-amber-500/20 flex gap-3"><div class="text-amber-400 text-2xl mt-1"><i class="ph-light ph-eye"></i></div><div><h4 class="font-bold text-white text-sm">Inspección Directa</h4><p class="text-xs text-slate-400 mt-1">Explora activamente. Haz clic en las zonas del aula para descubrir qué materiales contienen.</p></div></div>
+                    <div class="bg-slate-900/50 p-4 rounded-xl border border-amber-500/20 flex gap-3"><div class="text-amber-400 text-2xl mt-1"><i class="ph-light ph-intersect"></i></div><div><h4 class="font-bold text-white text-sm">Mesa de Ensamble</h4><p class="text-xs text-slate-400 mt-1">Combina hasta 3 materiales para verificar si tu prototipo físico funciona o falla.</p></div></div>
+                </div>
+                <div class="pt-4">
+                    <button onclick="changePhase('sandbox')" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-3 text-base">Ingresar al Aula de Reuniones <i class="ph-light ph-arrow-right"></i></button>
+                </div>
+            </div>
+            <div class="lg:col-span-5 flex justify-center">
+                <div class="relative w-full max-w-sm bg-slate-900/40 border border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent pointer-events-none"></div>
+                    <div class="flex justify-between items-center mb-6"><span class="text-xs font-bold text-slate-500 uppercase font-mono">Simulador Físico</span><span class="h-2 w-2 rounded-full bg-[#d8d1c2] animate-ping"></span></div>
+                    <div class="flex flex-col items-center justify-center h-80 relative border border-dashed border-slate-800 rounded-2xl bg-slate-950/20">
+                        <div class="w-20 h-56 border-4 border-slate-600 border-t-0 rounded-b-sm relative bg-slate-800/60 flex flex-col justify-end items-center pb-2">
+                            <div class="absolute inset-x-0 top-0 h-full bg-gradient-to-r from-slate-700/20 via-transparent to-slate-700/20 pointer-events-none"></div>
+                            <div class="w-12 h-12 rounded-full bg-lime-400 border-2 border-white flex items-center justify-center font-bold text-[9px] text-slate-950 shadow-md">TENIS</div>
+                        </div>
+                    </div>
+                    <p class="text-center text-xs text-slate-400 mt-4 italic">¿Cómo usarías los elementos de la sala de juntas para sacarla?</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FASE 2: SANDBOX -->
+        <section id="phase-sandbox" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 py-2">
+            <div class="lg:col-span-7 space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center gap-2"><div class="bg-[#d8d1c2]/10 text-amber-400 p-1.5 rounded-lg"><i class="ph-light ph-video-camera"></i></div><h3 class="font-bold text-white text-sm">Exploración Visual del Aula</h3></div>
+                        <button id="btn-toggle-lupa" onclick="toggleLupaMode()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-855 text-slate-500 border border-slate-700 hover:bg-slate-800 hover:text-amber-400 transition-all flex items-center gap-2"><i id="lupa-icon" class="ph-light ph-magnifying-glass"></i> <span id="lupa-text">Lupa</span></button>
+                    </div>
+                    <div id="room-explore-area" class="room-container relative w-full aspect-[16/9] select-none">
+                        <img src="https://i.postimg.cc/59P21GXw/sala-de-juntas.jpg" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1431540015161-0bf868a2d407?auto=format&fit=crop&w=1200&q=80';" alt="Aula de Reto" id="classroom-photo" class="w-full h-full object-cover opacity-90 transition-opacity duration-300">
+                        <div id="lens" class="magnifying-glass"></div>
+                        <div id="hotspot-table" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:41%;top:66%;width:18%;height:18%;" onclick="exploreZone('table')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Abrir Caja de Herramientas</span></div></div>
+                        <div id="hotspot-cabinets" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:81%;top:0%;width:12%;height:18%;" onclick="exploreZone('cabinet_top')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Abrir Gabinetes de Arriba</span></div></div>
+                        <div id="hotspot-bookshelf" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:81%;top:18%;width:12%;height:44%;" onclick="exploreZone('bookshelf')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Revisar Estantes Abiertos</span></div></div>
+                        <div class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:81%;top:62%;width:12%;height:26%;" onclick="exploreZone('cabinet_bottom')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Abrir Cajoneras de Abajo</span></div></div>
+                        <div class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:31%;top:14%;width:40%;height:10%;" onclick="exploreZone('upper_cabinets')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Revisar Gabinete de la Pizarra</span></div></div>
+                        <div id="hotspot-snacks" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:91%;top:30%;width:9%;height:46%;" onclick="exploreZone('snacks')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Zona de Snacks</span></div></div>
+                        <div id="hotspot-board" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:30%;top:25%;width:41%;height:24%;" onclick="exploreZone('board')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Ver Pizarra de Física</span></div></div>
+                        <div class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:25%;top:60%;width:30%;height:20%;" onclick="exploreZone('table')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Revisar Mesa de Juntas</span></div></div>
+                        <div id="hotspot-plants" class="absolute cursor-crosshair group hover:bg-[#d8d1c2]/5 transition-colors" style="left:10%;top:30%;width:10%;height:40%;" onclick="exploreZone('plants')"><div class="absolute inset-0 border border-dashed border-transparent group-hover:border-amber-500/30 rounded-xl flex items-center justify-center"><span class="bg-slate-950/80 text-[9px] text-amber-400 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity font-bold">Examinar Plantas</span></div></div>
+                    </div>
+                    <div id="explore-guide" class="mt-4 bg-[#0b1220] border border-[#1d2942] rounded-2xl px-6 py-5 shadow-[0_10px_40px_rgba(0,0,0,0.28)]">
+                        <div class="flex items-center gap-3 mb-5"><div class="w-9 h-9 rounded-xl bg-[#d8d1c2]/10 border border-[#d8d1c2]/10 flex items-center justify-center text-[#f3c969]"><i class="ph-fill ph-lightbulb text-lg"></i></div><div class="flex items-center gap-2"><span class="text-[#f3c969] text-sm">✦</span><span class="text-[13px] uppercase tracking-[0.14em] text-[#d8d1c2] font-semibold">Guía de exploración</span></div></div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="flex flex-col items-center text-center relative"><div class="w-11 h-11 rounded-2xl bg-[#111827] border border-[#243041] flex items-center justify-center mb-3 text-[#d9d16f]"><i class="ph-light ph-cursor-click text-xl"></i></div><span class="text-[#f8fafc] text-[12px] font-medium leading-6">1.- Haz clic en cualquier zona del aula</span><div class="hidden md:block absolute right-[-10px] top-2 h-16 w-px bg-[#243041]"></div></div>
+                            <div class="flex flex-col items-center text-center relative"><div class="w-11 h-11 rounded-2xl bg-[#111827] border border-[#243041] flex items-center justify-center mb-3 text-[#9fd0ff]"><i class="ph-light ph-squares-four text-xl"></i></div><span class="text-[#f8fafc] text-[12px] font-medium leading-6">2.- Investiga zonas rastreables</span><div class="hidden md:block absolute right-[-10px] top-2 h-16 w-px bg-[#243041]"></div></div>
+                            <div class="flex flex-col items-center text-center relative"><div class="w-11 h-11 rounded-2xl bg-[#111827] border border-[#243041] flex items-center justify-center mb-3 text-[#c6df8c]"><i class="ph-light ph-briefcase text-xl"></i></div><span class="text-[#f8fafc] text-[12px] font-medium leading-6">3.- Guarda objetos útiles en tu mesa de trabajo</span><div class="hidden md:block absolute right-[-10px] top-2 h-16 w-px bg-[#243041]"></div></div>
+                            <div class="flex flex-col items-center text-center"><div class="w-11 h-11 rounded-2xl bg-[#111827] border border-[#243041] flex items-center justify-center mb-3 text-[#f0d28f]"><i class="ph-light ph-flask text-xl"></i></div><span class="text-[#f8fafc] text-[12px] font-medium leading-6">Prueba prototipos</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="hotspot-reveal-panel" class="hidden bg-slate-900 border border-amber-500/20 rounded-2xl p-5 shadow-xl relative">
+                    <button onclick="closeHotspotPanel()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors bg-slate-800 p-1 rounded-lg"><i class="ph-light ph-x text-base"></i></button>
+                    <div class="flex items-center gap-2 mb-2"><span class="text-[10px] bg-[#d8d1c2]/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded font-extrabold uppercase" id="hotspot-tag">Inspección</span><h4 class="font-extrabold text-white text-sm" id="hotspot-title">Objetos Descubiertos</h4></div>
+                    <p class="text-xs text-slate-400 mb-4" id="hotspot-desc"></p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="hotspot-items-grid"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 space-y-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 pt-8 shadow-xl flex items-center justify-around">
+                    <div class="relative w-32 h-60 border-x-4 border-b-4 border-slate-600 rounded-b-sm pb-1 shadow-inner flex justify-center items-end overflow-visible" style="background: linear-gradient(to right, #1e293b 0%, #0f172a 40%, #1e293b 100%);">
+                        <div class="absolute inset-0 bg-gradient-to-r from-slate-600/10 via-transparent to-slate-600/10 pointer-events-none"></div>
+                        <div class="absolute -top-1.5 -left-1 -right-1 h-3 bg-slate-600 border border-slate-500 rounded-sm z-20"></div>
+                        <div id="liquid-volume" class="absolute bottom-0 left-0 right-0 rounded-b transition-all duration-1000 ease-out" style="height:0%;">
+                            <div id="liquid-particles" class="absolute inset-0 overflow-hidden pointer-events-none opacity-30"></div>
+                        </div>
+                        <div id="tennis-ball" class="w-12 h-12 rounded-full bg-gradient-to-br from-lime-300 to-lime-500 border border-lime-100 flex items-center justify-center font-black text-slate-900 shadow-md z-10 transition-all duration-1000 ease-out absolute" style="bottom:8px;"><i class="ph-light ph-tennis-ball text-slate-900 text-base"></i></div>
+                    </div>
+                    <div class="space-y-3 max-w-[180px] flex-grow pl-4">
+                        <span class="text-xs font-bold text-slate-400 block uppercase tracking-wider">Estado de la Pelota</span>
+                        <div id="ball-status-badge" class="px-3 py-2 rounded-xl text-sm font-black bg-[#d8d1c2]/10 text-amber-400 border border-amber-500/20 text-center">Atrapada en el fondo</div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button onclick="triggerFisicaError('hands')" class="bg-red-950/40 hover:bg-red-900/40 border border-red-500/20 text-red-400 text-[10px] py-1 px-1.5 rounded-lg font-bold transition-all"><i class="ph-light ph-hand-palm block text-center text-xs"></i> Meter mano</button>
+                            <button onclick="triggerFisicaError('move')" class="bg-red-950/40 hover:bg-red-900/40 border border-red-500/20 text-red-400 text-[10px] py-1 px-1.5 rounded-lg font-bold transition-all"><i class="ph-light ph-arrows-out-cardinal block text-center text-xs"></i> Voltear tubo</button>
+                        </div>
+                        <button id="btn-extract-ball" disabled onclick="extractBallSuccess()" class="w-full bg-slate-800 text-slate-500 font-bold py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-not-allowed"><i class="ph-light ph-hand-grabbing"></i> Retirar Pelota</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex justify-between items-center mb-2"><span class="text-xs font-extrabold tracking-wider text-slate-300 uppercase flex items-center gap-1.5"><i class="ph-light ph-hammer text-amber-300"></i> Mesa de Trabajo (3 slots)</span></div>
+                    <div class="grid grid-cols-3 gap-3 mb-3">
+                        <div id="combine-slot-0" onclick="removeDraftItem(0)" class="aspect-square bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-center p-2 transition-all group"><i class="ph-light ph-plus text-slate-600 text-lg"></i><span class="text-[9px] text-slate-500 font-bold mt-1">Slot 1</span><span class="text-[7px] text-slate-600 font-medium">Vacío</span></div>
+                        <div id="combine-slot-1" onclick="removeDraftItem(1)" class="aspect-square bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-center p-2 transition-all group"><i class="ph-light ph-plus text-slate-600 text-lg"></i><span class="text-[9px] text-slate-500 font-bold mt-1">Slot 2</span><span class="text-[7px] text-slate-600 font-medium">Vacío</span></div>
+                        <div id="combine-slot-2" onclick="removeDraftItem(2)" class="aspect-square bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-center p-2 transition-all group"><i class="ph-light ph-plus text-slate-600 text-lg"></i><span class="text-[9px] text-slate-500 font-bold mt-1">Slot 3</span><span class="text-[7px] text-slate-600 font-medium">Vacío</span></div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="clearEnsemble()" class="w-1/3 bg-slate-950 hover:bg-slate-855 text-slate-400 py-2 rounded-xl text-xs font-bold border border-slate-800 transition-all">Vaciar Mesa</button>
+                        <button onclick="executeCombination()" class="w-2/3 bg-[#d8d1c2] hover:bg-amber-600 text-slate-950 font-black py-2 rounded-xl text-xs transition-all shadow-md">Probar Prototipo</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <span class="text-[10px] font-bold text-slate-400 block mb-2 uppercase tracking-wider">Bitácora de Hipótesis</span>
+                    <div id="log-container" class="space-y-1.5 max-h-[100px] overflow-y-auto text-[10px] text-slate-400">
+                        <div class="p-1 rounded bg-slate-950 border-l-2 border-amber-500">Pasa la lupa por las zonas del aula y haz clic sobre ellas para investigar los cajones, estantes y el dispensador de agua.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FASE 3: REFLEXIÓN -->
+        <section id="phase-reflection" class="py-4 space-y-6 hidden">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <span class="text-xs font-bold tracking-widest text-emerald-400 uppercase">Pizarra de Pensamiento</span>
+                    <h2 class="text-3xl font-black text-white">Espacio de Ideación</h2>
+                    <div class="flex items-center gap-2 mt-1">
+                        <p id="random-question" class="text-slate-400 text-sm italic">"Cargando pregunta de reflexión..."</p>
+                        <button onclick="setRandomQuestion()" class="text-emerald-500 hover:text-emerald-400 transition-colors"><i class="ph-bold ph-arrows-clockwise"></i></button>
+                    </div>
+                </div>
+                <button onclick="toggleFinalReflections()" id="btn-toggle-reflections" disabled class="bg-slate-700 text-slate-500 font-bold px-4 py-2 rounded-xl transition-all text-xs flex items-center gap-2 cursor-not-allowed"><i class="ph-light ph-lock"></i> Bloqueado: Supera el reto</button>
+            </div>
+            <div id="achievement-badge" class="hidden">
+                <div class="flex items-center gap-4 bg-gradient-to-r from-amber-500/10 to-emerald-500/10 border border-amber-500/30 rounded-2xl p-4 relative overflow-hidden">
+                    <div class="absolute inset-0 pointer-events-none"><div class="absolute top-2 left-8 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-60"></div><div class="absolute top-6 left-24 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-40" style="animation-delay:0.5s"></div><div class="absolute bottom-3 left-16 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style="animation-delay:1s"></div></div>
+                    <div class="relative shrink-0"><div class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-amber-500/40" style="background:linear-gradient(135deg,#f59e0b,#f59e0b,#fde68a,#f59e0b);background-size:300% 300%;animation:shimmer 2s ease infinite;"><i class="ph-fill ph-trophy"></i></div><div class="absolute inset-0 rounded-full border-2 border-amber-400/40 animate-ping"></div></div>
+                    <div class="flex-1"><p class="text-[11px] font-bold tracking-widest text-amber-400 uppercase">Reconocimiento</p><h4 class="text-white font-extrabold text-sm">Canvas MDPC Completado</h4><p class="text-slate-400 text-xs mt-0.5">Aplicaste las 5 herramientas de pensamiento estratégico a tu contexto real.</p></div>
+                    <button onclick="downloadCanvasPDF()" class="ml-auto bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition-all shrink-0 flex items-center gap-1.5 shadow-lg shadow-amber-500/20"><i class="ph-light ph-download-simple"></i> Descargar Canvas</button>
+                </div>
+            </div>
+            <style>@keyframes shimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}</style>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
+                <div class="lg:col-span-4 flex flex-col gap-3">
+                    <h4 class="font-bold text-white text-sm">Nueva Nota de Ayuda</h4>
+                    <textarea id="note-text" placeholder="Anota ideas rápidas aquí..." class="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" rows="3"></textarea>
+                    <button onclick="addStickyNote()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all">Pegar Nota de Ayuda</button>
+                </div>
+                <div class="lg:col-span-8 bg-slate-950 rounded-xl p-4 border border-slate-800 min-h-[350px] relative"><div id="sticky-board" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div></div>
+            </div>
+            <div id="solutions-panel" class="hidden space-y-4">
+                <div class="flex items-center gap-3 pt-2"><div class="h-px flex-grow bg-slate-800"></div><span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Todas las soluciones posibles</span><div class="h-px flex-grow bg-slate-800"></div></div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                    <p class="text-[13px] text-slate-400 leading-relaxed">Resolviste el reto con una combinación. Pero había otras. Cada una usa el mismo principio físico — <span class="text-white font-medium">desplazamiento por flotabilidad</span> — y llega a él por un camino diferente.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="bg-slate-950 border border-emerald-500/20 rounded-xl p-4 space-y-2"><div class="flex items-center gap-2"><span class="text-emerald-400 text-base">✓</span><span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Camino A</span></div><p class="text-[13px] text-white font-medium">Cafetera (300ml) + Botella (125ml)</p><p class="text-[11px] text-slate-500 leading-relaxed">425ml en total. Ninguno de los dos solo era suficiente — juntos superan el umbral de flotación.</p></div>
+                        <div class="bg-slate-950 border border-amber-500/20 rounded-xl p-4 space-y-2"><div class="flex items-center gap-2"><span class="text-amber-400 text-base">✓</span><span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Camino B</span></div><p class="text-[13px] text-white font-medium">Cafetera (300ml) + Regadera (200ml)</p><p class="text-[11px] text-slate-500 leading-relaxed">500ml en total. La regadera estaba en otra zona — requería conectar dos zonas distintas.</p></div>
+                        <div class="bg-slate-950 border border-sky-500/20 rounded-xl p-4 space-y-2"><div class="flex items-center gap-2"><span class="text-sky-400 text-base">✓</span><span class="text-[11px] font-bold text-sky-400 uppercase tracking-wider">Camino C</span></div><p class="text-[13px] text-white font-medium">Cafetera + Botella + Regadera</p><p class="text-[11px] text-slate-500 leading-relaxed">625ml. El camino más abundante — pero requería encontrar los tres.</p></div>
+                    </div>
+                    <div class="p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl mt-2"><p class="text-[12px] text-slate-500 leading-relaxed"><span class="text-slate-400 font-medium">Lo que no funcionó:</span> Botella sola (125ml) · Regadera sola (200ml) · Botella + Regadera (325ml) — todos por debajo del umbral de 400ml. El problema no era el tipo de líquido. Era el volumen.</p></div>
+                </div>
+            </div>
+        </section>
+        <div id="final-reflections-container" class="hidden mt-8 p-6 bg-slate-800 rounded-2xl border border-emerald-500/30">
+            <h3 class="text-xl font-bold text-emerald-400 mb-4">Tus Reflexiones Definitivas</h3>
+            <div id="final-reflections-list" class="space-y-3 text-sm text-slate-300"></div>
+            <button onclick="exportStickyNotes()" class="mt-4 bg-white text-slate-950 font-bold px-4 py-2 rounded-xl text-xs hover:bg-slate-200 transition-all">Exportar todo</button>
+        </div>
+    </main>
+
+    <!-- TOOLBOX SIDEBAR -->
+    <div id="toolbox-overlay" onclick="toggleToolbox()" class="fixed inset-0 z-10 bg-black/20 hidden transition-opacity duration-300"></div>
+    <div id="toolbox-sidebar" class="fixed left-0 top-0 h-full w-full lg:w-[55.33%] bg-[#050816] border-r border-[#ddd6cb] shadow-2xl z-[80] -translate-x-full transition-transform duration-500 overflow-y-auto flex flex-col justify-between">
+        <div class="p-8 md:p-10 space-y-10 flex-grow w-full lg:w-[82%] bg-[#f8f5ef] flex flex-col mx-auto text-[#2b2b2b]">
+            <div class="sticky top-0 z-20 bg-[#f8f5ef] pt-5 pb-3 space-y-5">
+                <div class="relative flex items-center justify-center"><span class="text-[13px] font-semibold tracking-[0.14em] text-[#7b766f] uppercase">Caja de Herramientas</span><button onclick="toggleToolbox()" class="absolute right-0 text-[#7b766f] hover:text-[#2b2b2b] transition-colors p-1"><i class="ph-light ph-x text-xl"></i></button></div>
+                <div class="flex items-center gap-2 bg-[#ebe6dc] p-2 rounded-2xl border border-[#d9d3c7] w-fit mx-auto shadow-sm">
+                    <button onclick="selectToolboxModule(1)" id="module-tab-1" class="py-3 px-5 text-sm font-semibold rounded-xl transition-all text-center tracking-[0.03em] bg-[#44685a] text-white shadow-sm">Modulo 1</button>
+                    <button onclick="selectToolboxModule(2)" id="module-tab-2" class="py-3 px-5 text-sm font-medium rounded-xl transition-all text-center tracking-[0.03em] text-[#6d6a66] hover:text-[#2b2b2b]">Módulo 2</button>
+                    <button onclick="selectToolboxModule(3)" id="module-tab-3" class="py-3 px-5 text-sm font-medium rounded-xl transition-all text-center tracking-[0.03em] text-[#6d6a66] hover:text-[#2b2b2b]">Módulo 3</button>
+                    <button onclick="selectToolboxModule(4)" id="module-tab-4" class="py-3 px-5 text-sm font-medium rounded-xl transition-all text-center tracking-[0.03em] text-[#6d6a66] hover:text-[#2b2b2b]">Módulo 4</button>
+                    <button onclick="selectToolboxModule(5)" id="module-tab-5" class="py-3 px-5 text-sm font-medium rounded-xl transition-all text-center tracking-[0.03em] text-[#6d6a66] hover:text-[#2b2b2b]">Módulo 5</button>
+                </div>
+            </div>
+            <div id="toolbox-dynamic-content" class="fade-transition space-y-8 opacity-100">
+                <div class="flex justify-between items-start border-b border-[#ddd6cb] pb-8 gap-6">
+                    <div class="space-y-3" id="tb-header-area">
+                        <div class="flex items-center gap-3 text-sm font-medium text-[#7b766f] tracking-[0.08em]"><span class="bg-[#dbe6de] text-[#44685a] border border-[#bfd0c3] rounded-md px-2 py-1 font-semibold" id="tb-module-badge">01</span><span id="tb-subtitle">Comprender · Kahneman · Duncker</span></div>
+                        <h2 class="text-[52px] leading-[1.05] tracking-tight text-[#1d1d1d]" style="font-family:'Cormorant Garamond',serif;font-weight:600;" id="tb-title">Cómo el cerebro bloquea el pensamiento</h2>
+                    </div>
+                    <button class="bg-[#dbe6de] text-[#44685a] border border-[#bfd0c3] font-semibold px-4 py-2 rounded-xl text-sm tracking-[0.04em] shrink-0" id="tb-bloom-badge">Identificar</button>
+                </div>
+                <div class="bg-white/70 backdrop-blur-sm border border-[#ddd6cb] rounded-2xl p-6 space-y-3 shadow-[0_4px_20px_rgba(0,0,0,0.04)]" id="tb-intro-card"><h4 class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a]" id="tb-intro-title">Los 3 sesgos activos</h4><p class="text-[17px] text-[#4f4b47] leading-8" id="tb-intro-desc">Ves el recurso por su etiqueta — no por sus propiedades reales.</p></div>
+                <div class="space-y-4" id="tb-cards-area"><span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a] block">Los 3 sesgos</span><div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="tb-three-cards"></div></div>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center border-b border-[#ddd6cb] pb-3"><span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a]" id="tb-matrix-title">La Matriz de Deconstrucción</span><div class="flex gap-1 bg-[#ebe6dc] p-1 rounded-xl border border-[#ddd6cb]"><button onclick="toggleInfographicTab('challenge')" id="btn-tab-challenge" class="px-4 py-2 text-sm font-semibold rounded-lg bg-[#6f8f7b] text-white transition-colors">En el reto</button><button onclick="toggleInfographicTab('job')" id="btn-tab-job" class="px-4 py-2 text-sm font-medium rounded-lg text-[#6d6a66] transition-colors">En tu trabajo</button></div></div>
+                    <div class="overflow-x-auto rounded-2xl border border-[#ddd6cb] bg-white/60 backdrop-blur-sm"><table class="w-full text-left text-[15px]" id="tb-matrix-table"></table></div>
+                </div>
+                <div id="tb-matrix-test-section" style="display:none" class="mt-6">
+                    <div class="flex items-center justify-between mb-3"><span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a]">Prueba de Variables</span><div class="flex gap-2"><button id="btn-tab-test-challenge" onclick="toggleTestTab('challenge')" class="px-4 py-2 text-sm rounded-xl font-semibold bg-[#7d9888] text-[#f8f5ef] shadow-sm transition-colors">En el reto</button><button id="btn-tab-test-job" onclick="toggleTestTab('job')" class="px-4 py-2 text-sm rounded-xl font-medium text-[#6d6a66] transition-colors">En tu trabajo</button></div></div>
+                    <div class="rounded-2xl overflow-hidden border border-[#ddd6cb]"><table id="tb-matrix-test-table" class="w-full text-left border-collapse"></table></div>
+                </div>
+                <div class="space-y-5 bg-white/70 backdrop-blur-sm p-6 rounded-2xl border border-[#ddd6cb] shadow-[0_4px_20px_rgba(0,0,0,0.04)]" id="tb-tool-area"><span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a] block" id="tb-tool-title">La herramienta — 3 preguntas basales</span><ul class="space-y-5 text-[#4f4b47] text-[16px] leading-8" id="tb-tool-list"></ul></div>
+                <div class="p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-[#ddd6cb] text-[16px] text-[#5c5853] italic leading-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)]" id="tb-transition-card">"No ves la solución porque tu cerebro etiquetó cada recurso por su función obvia..."</div>
+                <div id="tb-canvas-section" class="space-y-4">
+                    <div class="flex items-center justify-between border-b border-[#ddd6cb] pb-3"><span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a]">📋 Mi Canvas — Aplícalo a tu trabajo</span><span id="tb-canvas-status" class="text-[11px] font-medium text-[#9a9690]">Sin completar</span></div>
+                    <div class="bg-white/70 backdrop-blur-sm border border-[#ddd6cb] rounded-2xl p-6 space-y-4">
+                        <div class="bg-[#f0f7f4] border border-[#bfd0c3] rounded-xl p-4 space-y-1"><span class="text-[11px] font-semibold text-[#44685a] uppercase tracking-[0.06em]">Ejemplo del reto</span><p class="text-[13px] text-[#5c5853] leading-6" id="tb-canvas-example"></p></div>
+                        <div class="space-y-2"><label class="text-[13px] font-semibold text-[#2b2b2b]" id="tb-canvas-question"></label><textarea id="tb-canvas-input" rows="3" placeholder="Escribe aquí con tus propias palabras..." class="w-full text-[14px] text-[#2b2b2b] bg-white border border-[#ddd6cb] rounded-xl p-4 resize-none focus:outline-none focus:border-[#44685a] transition-colors leading-7 placeholder:text-[#9a9690]" oninput="saveCanvasEntry(currentToolboxModule, this.value)"></textarea></div>
+                    </div>
+                    <button onclick="toggleToolbox()" class="w-full bg-[#44685a] hover:bg-[#2d5a47] text-white font-semibold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2"><i class="ph-light ph-arrow-left"></i> Guardar y volver al reto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL SEMILLA — Marco de interpretación
+         Aparece en la primera selección del ciclo 2
+         Diseño completamente diferente a los modales de fallo
+    ═══════════════════════════════════════════════════════ -->
+    <div id="seed-modal" class="fixed inset-0 z-[62] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden px-4 pb-6 sm:pb-0">
+        <div style="background:#14100c; border:1px solid #4a3520; border-radius:20px; width:100%; max-width:520px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+
+            <!-- Franja superior ámbar -->
+            <div style="height:3px; background:linear-gradient(90deg,#c9a96e,#e8c990,#c9a96e);"></div>
+
+            <div style="padding:1.75rem 2rem 1.5rem;">
+
+                <!-- Badge -->
+                <div style="display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#c9a96e; margin-bottom:1.25rem;">
+                    <i class="ph-light ph-lightbulb" style="font-size:14px;"></i>
+                    Un momento
+                </div>
+
+                <!-- Susurro -->
+                <p style="font-size:16px; line-height:1.9; color:#e7dfd2; font-style:italic; margin:0 0 1.25rem; font-family:'Inter',sans-serif;">
+                    Interesante elección.
+                    <br><br>
+                    Antes de que sigas — ¿notaste algo? Cada objeto que ves en esta sala tiene una etiqueta. Tijeras. Cable. Regla.
+                    <br><br>
+                    Esa etiqueta es útil. Y también es una trampa. Porque en el momento en que nombras algo, tu cerebro cierra todas las otras cosas que podría ser.
+                    <br><br>
+                    Eso es un marco de interpretación. Y ahora mismo tienes uno activo sin darte cuenta.
+                </p>
+
+                <!-- Divisor -->
+                <div style="height:1px; background:#2e2218; margin-bottom:1rem;"></div>
+
+                <!-- Campo abierto -->
+                <p style="font-size:13px; color:#9a8570; margin:0 0 0.6rem; font-family:'Inter',sans-serif;">
+                    ¿Cuál es la propiedad física de ese objeto — más allá del nombre que le pusiste?
+                </p>
+                <textarea id="seed-modal-input"
+                    style="width:100%; background:#0d0a07; border:1px solid #3a2a1a; border-radius:10px; padding:10px 14px; font-size:13px; color:#e7dfd2; resize:none; outline:none; font-family:'Inter',sans-serif; box-sizing:border-box; transition:border-color 0.2s;"
+                    rows="2"
+                    placeholder="Opcional — escribe o cierra y sigue explorando..."
+                    onfocus="this.style.borderColor='#c9a96e'"
+                    onblur="this.style.borderColor='#3a2a1a'"></textarea>
+
+                <!-- Botón -->
+                <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+                    <button onclick="closeSeedModal()"
+                        style="background:#c9a96e; border:none; border-radius:10px; padding:9px 22px; font-size:13px; font-weight:700; color:#14100c; cursor:pointer; transition:background 0.2s; font-family:'Inter',sans-serif;"
+                        onmouseover="this.style.background='#e8c990'"
+                        onmouseout="this.style.background='#c9a96e'">
+                        Seguir explorando
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL DE SUSURRO — Frustración controlada rediseñada
+         Aparece después del fallo, no antes
+    ═══════════════════════════════════════════════════════ -->
+    <div id="theory-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/95 backdrop-blur-md hidden px-4 py-6">
+        <div class="bg-[#07090f] border border-slate-800/60 w-[90vw] max-w-[800px] rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
+
+            <!-- Header — badge + cerrar -->
+            <div class="px-7 pt-6 pb-0 flex items-center justify-between shrink-0">
+                <div id="whisper-modal-badge" class="step-tag text-amber-400 border border-amber-500/20 bg-amber-500/10"></div>
+                <button onclick="closeTheoryModal()" class="text-slate-600 hover:text-slate-400 transition-colors p-1 ml-4"><i class="ph-light ph-x text-lg"></i></button>
+            </div>
+
+            <!-- Cuerpo con scroll -->
+            <div class="overflow-y-auto flex-1 px-7 pt-5 pb-7">
+
+                <!-- Layout de dos columnas en md+ -->
+                <div class="flex flex-col md:flex-row gap-8">
+
+                    <!-- Columna izquierda — susurro -->
+                    <div class="md:w-[42%] md:shrink-0">
+                        <!-- Línea decorativa crema -->
+                        <div class="w-8 h-0.5 bg-[#e7dfd2]/30 rounded-full mb-4"></div>
+                        <p class="whisper-text whisper-animate" id="whisper-text"></p>
+                    </div>
+
+                    <!-- Separador vertical — solo desktop -->
+                    <div class="hidden md:block w-px bg-slate-800/60 shrink-0"></div>
+
+                    <!-- Columna derecha — pasos A/B/C -->
+                    <div class="flex-1 space-y-6" id="whisper-framework">
+
+                        <!-- PASO A -->
+                        <div>
+                            <div class="step-label-tag text-amber-400/80 border border-amber-500/20 bg-amber-500/8 mb-2" id="step-a-label">Paso A</div>
+                            <p class="step-question" id="step-a-question"></p>
+                            <div class="space-y-2" id="step-a-options"></div>
+                        </div>
+
+                        <div class="step-divider"></div>
+
+                        <!-- PASO B -->
+                        <div>
+                            <div class="step-label-tag text-sky-400/80 border border-sky-500/20 bg-sky-500/8 mb-2" id="step-b-label">Paso B</div>
+                            <p class="step-question" id="step-b-question"></p>
+                            <div id="step-b-content"></div>
+                        </div>
+
+                        <div class="step-divider"></div>
+
+                        <!-- PASO C -->
+                        <div>
+                            <div class="step-label-tag text-emerald-400/80 border border-emerald-500/20 bg-emerald-500/8 mb-2" id="step-c-label">Paso C</div>
+                            <p class="step-question" id="step-c-question"></p>
+                            <textarea id="step-c-input" class="open-field" rows="3" placeholder="Escribe aquí..."></textarea>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="flex gap-3 pt-2">
+                            <button onclick="closeTheoryModal()" class="flex-grow bg-[#d8d1c2] hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition-all">Volver al reto</button>
+                            <button onclick="handleModalRedirection()" class="px-4 py-3 bg-slate-800 text-slate-400 font-semibold rounded-xl text-xs hover:text-white hover:bg-slate-700 transition-all border border-slate-700">Ver módulo completo</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL DE VICTORIA — Secuencial M4 → M5
+    ═══════════════════════════════════════════════════════ -->
+    <div id="victory-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 backdrop-blur-md hidden px-4">
+        <div class="bg-[#090d16] border border-emerald-500/30 w-full max-w-lg rounded-3xl shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl"></div>
+
+            <!-- Celebración inicial -->
+            <div id="victory-celebration" class="p-8 text-center space-y-4 relative">
+                <div class="flex justify-center"><div class="w-20 h-20 bg-gradient-to-tr from-amber-400 to-amber-300 text-slate-950 rounded-full flex items-center justify-center text-4xl shadow-lg shadow-amber-500/20 float-animation"><i class="ph-fill ph-trophy"></i></div></div>
+                <div class="space-y-1"><h3 class="text-2xl font-extrabold text-white tracking-tight">Lo lograste.</h3><p class="text-emerald-400 text-xs font-bold tracking-wider uppercase font-mono">Flotabilidad de Fluidos Lograda</p></div>
+                <button onclick="startVictoryFlow()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">Continuar <i class="ph-light ph-arrow-right"></i></button>
+                <button onclick="resetRetoFromVictory()" class="w-full text-slate-500 text-xs hover:text-slate-400 transition-colors py-1">Intentar otra solución</button>
+            </div>
+
+            <!-- Paso M4 -->
+            <div id="victory-m4" class="hidden p-8 space-y-5 relative">
+                <div class="flex items-center gap-2 mb-1">
+                    <div id="victory-m4-badge" class="step-tag text-sky-400 border border-sky-500/30 bg-sky-500/10"></div>
+                </div>
+                <p class="whisper-text" id="victory-m4-whisper"></p>
+                <div class="step-divider"></div>
+
+                <div>
+                    <p class="text-[13px] text-slate-400 mb-3" id="victory-m4-q1"></p>
+                    <textarea id="victory-m4-input1" class="open-field" rows="2" placeholder="Escribe aquí..."></textarea>
+                </div>
+                <div>
+                    <p class="text-[13px] text-slate-400 mb-3" id="victory-m4-q2"></p>
+                    <textarea id="victory-m4-input2" class="open-field" rows="2" placeholder="Escribe aquí..."></textarea>
+                </div>
+
+                <button onclick="advanceToM5()" class="w-full bg-[#d8d1c2] hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">Continuar <i class="ph-light ph-arrow-right"></i></button>
+            </div>
+
+            <!-- Paso M5 -->
+            <div id="victory-m5" class="hidden p-8 space-y-5 relative">
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="step-tag text-purple-400 border border-purple-500/30 bg-purple-500/10">M5 · Replantear el problema</div>
+                </div>
+                <p class="whisper-text">Ya sabes cómo resolver este problema. Pero más importante — ya sabes cómo pensar cuando algo no funciona.</p>
+                <p class="text-[13px] text-slate-400">Te detuviste cuando el impulso era seguir. Generaste interpretaciones cuando lo fácil era repetir. Atacaste tu propia hipótesis cuando lo cómodo era defenderla. Eso no es suerte. Es un proceso. Y es transferible.</p>
+                <div class="step-divider"></div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-[13px] text-slate-400 mb-2">Piensa en un problema real que tengas ahora mismo — en tu trabajo, en tu equipo, en una decisión pendiente. ¿Cuál es la versión superficial de ese problema — la que tu cerebro ataca por defecto?</p>
+                        <textarea id="victory-m5-input1" class="open-field" rows="2" placeholder="El problema superficial es..."></textarea>
+                    </div>
+                    <div>
+                        <p class="text-[13px] text-slate-400 mb-2">¿Cuál podría ser el problema real detrás de ese?</p>
+                        <textarea id="victory-m5-input2" class="open-field" rows="2" placeholder="El problema real podría ser..."></textarea>
+                    </div>
+                    <div>
+                        <p class="text-[13px] text-slate-400 mb-2">¿Qué cambiaría en tu forma de abordarlo si partieras de esa segunda definición?</p>
+                        <textarea id="victory-m5-input3" class="open-field" rows="2" placeholder="Cambiaría..."></textarea>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="resetRetoFromVictory()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs transition-all border border-slate-700">Intentar otra solución</button>
+                    <button onclick="goToReflectionFromVictory()" class="flex-grow bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5">Ir a Pizarra de Reflexión <i class="ph-light ph-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CANVAS PENDIENTES -->
+    <div id="canvas-pending-modal" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/90 backdrop-blur-md hidden px-4">
+        <div class="bg-[#090d16] border border-amber-500/30 w-full max-w-lg rounded-3xl shadow-2xl p-8 text-center space-y-6">
+            <div class="flex justify-center"><div class="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center text-3xl"><i class="ph-light ph-clipboard-text"></i></div></div>
+            <div class="space-y-2"><h3 class="text-xl font-extrabold text-white">Antes de continuar</h3><p class="text-slate-400 text-sm leading-relaxed">Completa tu Canvas en los módulos pendientes para recibir tu reconocimiento.</p></div>
+            <div class="space-y-2 text-left" id="canvas-pending-list"></div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="openCanvasCompleteModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs transition-all border border-emerald-700">Completar Canvas</button>
+                <button onclick="skipCanvasAndContinue()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-400 font-bold py-3 rounded-xl text-xs transition-all border border-slate-600">Continuar sin completar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CANVAS COMPLETO -->
+    <div id="canvas-complete-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/90 backdrop-blur-md hidden px-4">
+        <div class="bg-[#090d16] border border-emerald-500/20 w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between p-6 border-b border-slate-800 shrink-0"><div><h3 class="text-lg font-extrabold text-white">Completa tu Canvas</h3><p class="text-slate-400 text-xs mt-0.5">Aplica cada herramienta a tu contexto real</p></div><button onclick="closeCanvasCompleteModal()" class="text-slate-400 hover:text-white transition-colors p-1"><i class="ph-light ph-x text-xl"></i></button></div>
+            <div class="overflow-y-auto flex-1 p-6 space-y-6" id="canvas-complete-content"></div>
+            <div class="p-6 border-t border-slate-800 shrink-0"><button onclick="saveAndContinueFromCanvas()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2">Guardar y continuar <i class="ph-light ph-arrow-right"></i></button></div>
+        </div>
+    </div>
+
+    <footer class="bg-[#050816] border-t border-[#161f31] py-8 px-6">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="mb-5"><span class="block text-[25px] md:text-[30px] italic font-semibold tracking-[-0.02em] text-[#e7dfd2]" style="font-family:'Fraunces',serif;">Eilyn Ginoe Brito</span><span class="block mt-2 text-[12px] uppercase tracking-[0.14em] text-[#8f887f] font-medium">Diseñadora de experiencias de aprendizaje</span></div>
+            <div class="w-16 h-px bg-gradient-to-r from-transparent via-[#3b465f] to-transparent mx-auto mb-5"></div>
+            <p class="text-[12px] md:text-[13px] leading-7 text-[#667085] tracking-[0.02em]">© 2026 · Actividad "Extracción Creativa" · Dinámica de Experimentación</p>
+        </div>
+    </footer>
+
+    <script>
+    /* ═══════════════════════════════════════════════
+       SCORM
+    ═══════════════════════════════════════════════ */
+    const SCORM = {
+        init() { try { if (window.API||window.API_1484_11) { this.api=window.API||window.API_1484_11; this.api.LMSInitialize?.()||this.api.Initialize?.(''); this.active=true; } else { this.active=false; } } catch(e){ this.active=false; } },
+        set(k,v){ if(!this.active)return; try{ this.api.LMSSetValue?.(k,v)||this.api.SetValue?.(k,v); this.api.LMSCommit?.()||this.api.Commit?.(''); }catch(e){} },
+        saveData(d){ if(!this.active)return; try{ const c=this.getData(); this.set('cmi.suspend_data',JSON.stringify({...c,...d})); }catch(e){} },
+        getData(){ if(!this.active)return{}; try{ const r=this.api.LMSGetValue?.('cmi.suspend_data')||this.api.GetValue?.('cmi.suspend_data')||'{}'; return JSON.parse(r||'{}'); }catch(e){return{};} },
+        complete(){ if(!this.active)return; this.set('cmi.core.lesson_status','completed'); this.set('cmi.completion_status','completed'); this.set('cmi.success_status','passed'); },
+        finish(){ if(!this.active)return; try{ this.api.LMSFinish?.()||this.api.Terminate?.(''); }catch(e){} }
+    };
+    SCORM.init();
+    window.addEventListener('beforeunload',()=>SCORM.finish());
+
+    /* ═══════════════════════════════════════════════
+       ESTADO
+    ═══════════════════════════════════════════════ */
+    let currentPhase='intro', waterLevel=0, isBallExtracted=false;
+    let isLupaActive=false, activeNoteColor='yellow';
+    let draftCombination=[null,null,null];
+    let errorCount=0, selectionCount=0, snacksUnlocked=false;
+    let seedModalShown=false; // Se muestra solo una vez — primera selección del ciclo 2
+
+    /* ═══════════════════════════════════════════════
+       BASE DE DATOS — MODALES DE SUSURRO
+       Cada modal: susurro + micro-framework A/B/C
+    ═══════════════════════════════════════════════ */
+    const whisperDatabase = {
+        1: {
+            badge: "M1 · Detente",
+            badgeColor: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+            whisper: "Ah. No funcionó.\n\nY apuesto que tu primer instinto fue buscar algo más largo, ¿verdad? O algo con mejor agarre. Todos hacemos lo mismo — el cerebro ve un obstáculo y ataca lo más obvio. Rápido, sin cuestionar.\n\nEl problema es que cuando actúas sobre lo primero que se te viene a la mente, estás resolviendo la versión más superficial del problema. No el problema real.\n\nPasa todo el tiempo. En el trabajo, en decisiones importantes, en proyectos que no avanzan.",
+            stepA: {
+                label: "Paso A — Identifica tu patrón",
+                question: "Todos tenemos un patrón cuando algo falla. ¿Cuál es el tuyo?",
+                type: "radio",
+                options: [
+                    { value: "mas", text: "Busco más — más recursos, más herramientas, algo más grande o más fuerte" },
+                    { value: "insisto", text: "Insisto — el mismo enfoque pero con más esfuerzo" },
+                    { value: "giro", text: "Giro — cambio lo que uso pero no la pregunta de fondo" }
+                ]
+            },
+            stepB: {
+                label: "Paso B — Nombra el problema real",
+                question: "El problema real, sin mencionar el tubo ni la pelota, es:",
+                type: "textarea",
+                placeholder: "Escribe en una frase lo que está pasando..."
+            },
+            stepC: {
+                label: "Paso C — Rompe el patrón",
+                question: "Una forma de abordarlo que rompa el patrón que acabas de identificar:"
+            },
+            module: 1
+        },
+        2: {
+            badge: "M2 · Genera interpretaciones",
+            badgeColor: "text-blue-400 border-blue-500/30 bg-blue-500/10",
+            whisper: "Ah, otra vez.\n\nMira lo que acabas de hacer. Cambiaste el objeto — pero la pregunta fue exactamente la misma que la primera vez.\n\nTu cerebro encontró una lógica que le convenció y ahora repite esa lógica con distintos materiales. No lo hace por terquedad. Lo hace porque cambiar de pregunta cuesta más energía que cambiar de herramienta.\n\nPero aquí está la trampa: mientras sigas haciendo la misma pregunta, todos los intentos van a llegar al mismo lugar.",
+            stepA: {
+                label: "Paso A — Identifica el marco",
+                question: "Todos nos quedamos atrapados en un marco sin darnos cuenta. ¿Cuál es el tuyo aquí?",
+                type: "radio",
+                options: [
+                    { value: "distancia", text: "Asumo que el problema está en la distancia — necesito llegar más lejos" },
+                    { value: "agarre", text: "Asumo que el problema está en el agarre — necesito sujetar mejor" },
+                    { value: "herramienta", text: "Asumo que el problema está en la herramienta — necesito encontrar la correcta" }
+                ]
+            },
+            stepB: {
+                label: "Paso B — Genera otra interpretación",
+                question: "Una interpretación completamente distinta del problema sería:",
+                type: "textarea",
+                placeholder: "¿Qué otra razón podría explicar por qué la pelota sigue ahí?"
+            },
+            stepC: {
+                label: "Paso C — Lo que cambia",
+                question: "Lo que esa nueva interpretación me permite ver que antes no veía:"
+            },
+            module: 2
+        },
+        3: {
+            badge: "M3 · Ataca tu hipótesis favorita",
+            badgeColor: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+            whisper: "Tres intentos. Sigues aquí.\n\nEso dice algo bueno de ti. Pero también dice algo interesante — ya tienes una teoría favorita. Una que sientes que casi funciona, que va por buen camino, que solo necesita el objeto correcto.\n\nEsa es exactamente la más peligrosa. No porque esté mal. Sino porque dejaste de cuestionarla.\n\nLa pregunta no es si tu teoría favorita puede funcionar. La pregunta es: ¿qué tendría que ser cierto para que estuviera completamente equivocada?",
+            stepA: {
+                label: "Paso A — Reconoce cómo la proteges",
+                question: "Todos protegemos nuestra teoría favorita sin darnos cuenta. ¿Cómo la estás protegiendo tú?",
+                type: "radio",
+                options: [
+                    { value: "confirmar", text: "Solo busco evidencia que la confirme — ignoro lo que la contradice" },
+                    { value: "tiempo", text: "La defiendo porque invertí tiempo en ella" },
+                    { value: "casi", text: "La doy por válida porque \"casi funcionó\"" }
+                ]
+            },
+            stepB: {
+                label: "Paso B — Destrúyela",
+                question: "¿Qué tendría que ser cierto para que esa teoría estuviera completamente equivocada?",
+                type: "textarea",
+                placeholder: "Estaría equivocado si..."
+            },
+            stepC: {
+                label: "Paso C — Tu próximo intento",
+                question: "Mi próximo intento va a probar exactamente esto — y si falla, sabré que:"
+            },
+            module: 3
+        },
+        /* M4 en fallo 4 — guía el pensamiento hacia la solución sin revelarla */
+        4: {
+            badge: "M4 · Encuentra una más",
+            badgeColor: "text-sky-400 border-sky-500/30 bg-sky-500/10",
+            whisper: "Cuatro intentos. Todavía sin resultado.\n\nY si miras con honestidad lo que has hecho — todos tus intentos asumieron lo mismo: que tú tenías que llegar hasta la pelota. Más largo, más rígido, más agarre. Distintas formas de resolver el mismo problema.\n\nPero ¿y si el problema está mal planteado desde el inicio?\n\nHay una pregunta que todavía no te has hecho. Y una vez que la escuchas, es difícil no verla.",
+            stepA: {
+                label: "Paso A — ¿Qué has estado cambiando?",
+                question: "Mis intentos hasta ahora han buscado cambiar:",
+                type: "radio",
+                options: [
+                    { value: "pelota", text: "La pelota — su posición, su agarre, su accesibilidad" },
+                    { value: "herramientas", text: "Las herramientas — encontrar la correcta" },
+                    { value: "sistema", text: "El sistema — las condiciones dentro del tubo" }
+                ]
+            },
+            stepB: {
+                label: "Paso B — La pregunta que cambia todo",
+                question: "Si no puedo llegar hasta la pelota, ¿cómo puedo hacer para que ella llegue hasta mí?",
+                type: "textarea",
+                placeholder: "Para que la pelota llegue hasta mí, necesitaría..."
+            },
+            stepC: {
+                label: "Paso C — Lo que implica buscar",
+                question: "Lo que esa idea implica buscar en esta sala:"
+            },
+            module: 4
+        }
+    };
+
+    /* ═══════════════════════════════════════════════
+       CONTENIDO DE M4/M5 EN VICTORIA
+    ═══════════════════════════════════════════════ */
+    const victoryM4Content = {
+        /* Para quien resolvió en fallo 3 — tono celebración, recoge el momento */
+        fallo3: {
+            badge: "M4 · Decidir con información incompleta",
+            whisper: "Lo lograste.\n\nY probablemente no fue en el primer intento. Hubo un momento en que dejaste de buscar el objeto correcto y empezaste a hacerte una pregunta diferente.\n\nEse cambio — de \"¿cómo llego hasta la pelota?\" a \"¿cómo hago que la pelota llegue hasta mí?\" — tiene un nombre. Y lo acabas de hacer sin que nadie te lo explicara.\n\nEso es pensar estratégicamente. No es una teoría. Es exactamente lo que acabas de vivir.",
+            q1: "Piensa en algo que tengas pendiente en tu trabajo o en tu vida. Algo donde sientas que no tienes suficiente información para actuar. ¿Qué evidencia ya tienes que podrías estar ignorando?",
+            q2: "¿Cuál sería tu mejor hipótesis disponible ahora mismo — aunque no sea perfecta?"
+        },
+        /* Para quien resolvió en fallo 4+ — tono reconocimiento, recoge la persistencia */
+        fallo4plus: {
+            badge: "M4 · Decidir con información incompleta",
+            whisper: "Lo lograste. Y no fue en el primer intento — ni en el segundo, ni en el tercero.\n\nSeguiste cuando muchos se rinden. Eso no es obstinación — es exactamente lo que hace alguien que entiende que cada fallo es información, no derrota.\n\nEn algún momento la pregunta cambió. Dejaste de preguntarte cómo llegar hasta la pelota y empezaste a preguntarte cómo hacer que ella llegara hasta ti. Ese cambio de pregunta lo es todo.",
+            q1: "Piensa en un problema real donde llevas tiempo intentando sin avanzar. ¿Estás intentando cambiar el objeto del problema — o las condiciones del sistema?",
+            q2: "¿Qué pasaría si reformularas la pregunta completamente — como acabas de hacer aquí?"
+        }
+    };
+
+    /* ═══════════════════════════════════════════════
+       TOOLBOX DATABASE (intacta del original)
+    ═══════════════════════════════════════════════ */
+    const toolboxDatabase = {
+        1:{badge:"MOVIMIENTO 01",subtitle:"Rutina Estratégica · Paso 1 de 5",title:"Detente",bloom:"Detenerse",downloadLabel:"Descargar Movimiento 1",introTitle:"El pensamiento estratégico no es saber más.",introDesc:"Es detenerse antes de actuar sobre la primera interpretación.",cardsLabel:"Por qué ocurre",cards:[{title:"El cerebro cierra rápido",desc:"Ante un problema, el cerebro busca la primera explicación disponible y actúa.",border:"border-amber-500"},{title:"La primera definición limita todo",desc:"Cómo defines el problema determina qué soluciones puedes ver.",border:"border-blue-500"},{title:"Detenerse no es perder tiempo",desc:"Es comprar información. Cada segundo definiendo bien el problema ahorra minutos.",border:"border-emerald-500"}],matrix:{challenge:{headers:["Definición impulsiva","Qué limita","Definición estratégica","Qué abre"],rows:[["Necesito sacar la pelota","Solo busca objetos que alcancen","La pelota está atrapada cuando debería estar libre","Cualquier mecanismo que la libere"],["No tengo las herramientas correctas","Busca más herramientas del mismo tipo","Las condiciones del interior no permiten el movimiento","Cambiar las condiciones, no las herramientas"]]},job:{headers:["Definición impulsiva","Qué limita","Definición estratégica","Qué abre"],rows:[["Necesitamos más ventas","Solo busca tácticas de venta","Los clientes no completan el proceso de compra","Cualquier punto del proceso que se pueda mejorar"],["El equipo no rinde","Solo busca soluciones de gestión","Algo en el sistema genera resultados por debajo de lo esperado","Proceso, herramientas, contexto o personas"]]}},toolTitle:"Cómo definir el problema",toolSteps:[{num:"1",title:"Escribe lo que está pasando en una frase",desc:"Sin soluciones. Sin causas. Solo la brecha entre lo que ocurre y lo que debería ocurrir."},{num:"2",title:"Usa esta estructura",desc:"'[Lo que está pasando] cuando debería [lo que debería pasar].'"},{num:"3",title:"Comprueba que no es una solución disfrazada",desc:"'Necesito algo más largo' es una solución. 'La pelota está atrapada cuando debería estar libre' es un problema."}],transitionText:"Tienes la definición del problema. El siguiente paso no es buscar la solución — es generar múltiples formas de entender por qué existe ese problema."},
+        2:{badge:"MOVIMIENTO 02",subtitle:"Rutina Estratégica · Paso 2 de 5",title:"Genera tres interpretaciones",bloom:"Multiplicar",downloadLabel:"Descargar Movimiento 2",introTitle:"No puedes trabajar con una sola definición.",introDesc:"La calidad de una solución depende de la calidad de la interpretación que la generó.",cardsLabel:"La regla de las tres interpretaciones",cards:[{title:"Distintas, no variantes",desc:"Dos interpretaciones son distintas cuando te obligan a buscar la solución en lugares distintos.",border:"border-amber-500"},{title:"La cantidad fuerza la calidad",desc:"La primera interpretación es siempre la más obvia. La tercera es donde aparece algo que no habías considerado.",border:"border-blue-500"},{title:"No busques la correcta",desc:"El objetivo no es encontrar la interpretación verdadera. Es generar opciones cognitivas antes de actuar.",border:"border-emerald-500"}],matrix:{challenge:{headers:["Interpretación","Dónde buscarías la solución"],rows:[["La pelota no puede ser alcanzada","Objetos más largos o con mejor agarre"],["El acceso directo está bloqueado","Formas de crear acceso indirecto"],["Las condiciones del interior no permiten el movimiento","Mecanismos que cambien esas condiciones"]]},job:{headers:["Problema","Interpretación","Dónde buscarías"],rows:[["Las ventas bajaron","El producto perdió atractivo","Mejoras al producto"],["Las ventas bajaron","Llegan menos prospectos","Adquisición y marketing"],["Las ventas bajaron","Los clientes abandonan antes de comprar","Experiencia y proceso de compra"]]}},toolTitle:"Cómo generar tres interpretaciones distintas",toolSteps:[{num:"1",title:"Escribe la interpretación más obvia",desc:"La primera que se te venga. No la filtres."},{num:"2",title:"Busca una que empiece desde un lugar completamente distinto",desc:"¿Qué otra variable podría estar generando este problema?"},{num:"3",title:"Comprueba que son distintas",desc:"¿Cada una te llevaría a buscar la solución en un lugar diferente?"}],transitionText:"Tienes tres interpretaciones. Ahora el riesgo es elegir la favorita por comodidad."},
+        3:{badge:"MOVIMIENTO 03",subtitle:"Rutina Estratégica · Paso 3 de 5",title:"Ataca tu explicación favorita",bloom:"Cuestionar",downloadLabel:"Descargar Movimiento 3",introTitle:"El cerebro elige la hipótesis que confirma lo que ya cree.",introDesc:"Una hipótesis que no has intentado destruir es una hipótesis que no has probado.",cardsLabel:"Por qué atacar la favorita",cards:[{title:"Sesgo de confirmación",desc:"El cerebro busca datos que validan lo que ya cree.",border:"border-amber-500"},{title:"Las hipótesis fuertes sobreviven",desc:"Si no encuentras razones por las que podría estar equivocada — no la estás atacando.",border:"border-blue-500"},{title:"El error temprano es barato",desc:"Descubrir que estabas equivocado antes de actuar cuesta segundos.",border:"border-emerald-500"}],matrix:{challenge:{headers:["Hipótesis favorita","¿Qué tendría que ser cierto para que estuviera equivocada?","Qué revelaría"],rows:[["Necesito algo que llegue al fondo","Que no sea necesario llegar al fondo para mover la pelota","Que el enfoque de alcanzar es la limitación"],["Necesito algo que agarre la pelota","Que la pelota no pueda ser agarrada por su superficie","Que el agarre directo no es el mecanismo correcto"]]},job:{headers:["Hipótesis favorita","¿Qué demostraría que está equivocada?","Dónde buscar esa evidencia"],rows:[["El problema es la capacitación","Personas capacitadas siguen fallando","Observar el desempeño después de capacitar"],["Necesitamos más presupuesto","Equipos con menos presupuesto resuelven el mismo problema","Benchmarking con equipos similares"]]}},toolTitle:"Cómo atacar tu hipótesis favorita",toolSteps:[{num:"1",title:"Elige la interpretación que más te convence",desc:"Esa es la que más necesitas atacar."},{num:"2",title:"Pregunta: ¿qué tendría que ser cierto para que estuviera equivocada?",desc:"Busca activamente la evidencia que la destruiría."},{num:"3",title:"Si no encuentras ninguna razón — sigue intentando",desc:"No estás atacando la hipótesis. La estás defendiendo."}],transitionText:"Atacaste la favorita. ¿Hay alguna interpretación que todavía no consideraste?"},
+        4:{badge:"MOVIMIENTO 04",subtitle:"Rutina Estratégica · Paso 4 de 5",title:"Encuentra una más",bloom:"Expandir",downloadLabel:"Descargar Movimiento 4",introTitle:"Cuando creas que terminaste — genera una opción más.",introDesc:"El cerebro siente que ya terminó después de tres opciones. Ese impulso de cerrar es exactamente lo que quieres interrumpir.",cardsLabel:"Por qué una más",cards:[{title:"El cierre prematuro es el enemigo",desc:"La sensación de haber explorado suficiente llega antes de haber explorado lo suficiente.",border:"border-amber-500"},{title:"Las mejores ideas llegan después",desc:"La primera opción es la más obvia. La cuarta es donde aparece lo que nadie más está viendo.",border:"border-blue-500"},{title:"No tiene que ser perfecta",desc:"La cuarta interpretación no necesita ser la correcta. Necesita ser diferente.",border:"border-emerald-500"}],matrix:{challenge:{headers:["Las tres primeras","La cuarta"],rows:[["Alcanzar · Enganchar · Adherir","¿Y si en lugar de mover algo hacia la pelota, cambio las condiciones del interior?"]]},job:{headers:["Problema","Las tres primeras","La cuarta"],rows:[["Satisfacción de clientes baja","Servicio lento · Sin habilidades · Proceso con pasos innecesarios","Estamos midiendo la satisfacción en el momento equivocado"],["Equipo no cumple plazos","Falta de priorización · Distracciones · Estimaciones incorrectas","Los plazos no consideran las dependencias reales"]]}},toolTitle:"Cómo encontrar la cuarta interpretación",toolSteps:[{num:"1",title:"Lee tus tres interpretaciones",desc:"¿Todas asumen que el problema está en el mismo nivel del sistema?"},{num:"2",title:"Busca un nivel diferente",desc:"Si las tres miran al proceso — busca una que mire al contexto."},{num:"3",title:"Comprueba que es distinta",desc:"¿Te llevaría a buscar en un lugar que ninguna de las tres anteriores tocó?"}],transitionText:"Tienes cuatro interpretaciones. Ahora hay que elegir con cuál trabajar."},
+        5:{badge:"MOVIMIENTO 05",subtitle:"Rutina Estratégica · Paso 5 de 5",title:"Elige conscientemente",bloom:"Decidir",downloadLabel:"Descargar Movimiento 5",introTitle:"Elegir conscientemente no es elegir la correcta.",introDesc:"Es elegir con criterio en lugar de por impulso.",cardsLabel:"Tres preguntas para elegir",cards:[{title:"¿Cuál explica más evidencia?",desc:"La interpretación que explica más de lo que ya ocurrió tiene más probabilidad de ser útil.",border:"border-amber-500"},{title:"¿Cuál abre más opciones de acción?",desc:"Una buena interpretación genera múltiples posibilidades.",border:"border-blue-500"},{title:"¿Cuál sobrevivió mejor al ataque?",desc:"La interpretación que resistió mejor el Movimiento 3 es la más robusta.",border:"border-emerald-500"}],matrix:{challenge:{headers:["Interpretación","¿Explica la evidencia?","¿Abre opciones?","¿Sobrevivió al ataque?"],rows:[["Necesito algo que alcance","Parcialmente","Solo una dirección: más longitud","No"],["Las condiciones del interior pueden cambiar","Sí","Múltiples: líquido, presión, temperatura","Sí"]]},job:{headers:["Situación","La interpretación elegida","Por qué fue elegida"],rows:[["Equipo no cumple plazos","Los plazos no consideran dependencias","Explica por qué ocurre incluso con el equipo comprometido"],["Clientes no compran","Los clientes abandonan en un punto específico","Explica el patrón · Permite intervenir en el punto exacto"]]}},toolTitle:"Cómo elegir con criterio",toolSteps:[{num:"1",title:"Revisa las cuatro interpretaciones contra las tres preguntas",desc:"¿Cuál explica más evidencia? ¿Cuál abre más opciones? ¿Cuál sobrevivió mejor al ataque?"},{num:"2",title:"Elige la que gana en dos de las tres preguntas",desc:"No necesita ganar en todas. Necesita ser la mejor opción disponible."},{num:"3",title:"Explícala en una frase antes de actuar",desc:"Si no puedes explicarla en una frase — todavía estás eligiendo por impulso."}],transitionText:"Ejecutaste los cinco movimientos. Eso es pensamiento estratégico — no como concepto, sino como rutina."}
+    };
+
+    /* ═══════════════════════════════════════════════
+       CLASSROOM DB (completa del original)
+    ═══════════════════════════════════════════════ */
+    const classroomDB = {
+        table:{name:"Caja de Herramientas (Mesa Principal)",desc:"Abres con cuidado el cajón de herramientas metálico sobre la mesa de juntas:",items:[{id:"cable_eth",name:"Cable Ethernet (1.5m)",icon:"ph-flow-arrow",desc:"Rollo de cable de red algo rígido.",etiqueta:"Un objeto para transmitir datos entre dispositivos",propiedades:"Longitud de 1.5m · flexible · no se rompe al doblar · diámetro delgado",m1:"Tu cerebro lo congeló en \"cable de red\" para ahorrar energía. Esa etiqueta te impide ver que es, ante todo, longitud flexible.",usos:"extensión de alcance · guía de dirección · material de amarre",pregunta:"Tienes longitud. Llegas al fondo — pero ¿cómo agarras algo liso y redondo con un cable?",categoria:"Alcance",falta:"Agarre"},{id:"tijeras",name:"Tijeras de Oficina",icon:"ph-scissors",desc:"Tijeras metálicas de papelería.",etiqueta:"Un objeto para cortar papel y materiales",propiedades:"Dos palancas unidas en un pivote · metal rígido · peso concentrado en el extremo",m1:"Tu cerebro las congeló en \"tijeras\" para ahorrar energía. Esa etiqueta te impide ver que son dos palancas de metal rígido.",usos:"palanca de presión · soporte rígido",pregunta:"Tienes rigidez. Pero 15cm no llegan a 60 de profundidad — ¿qué necesitarías combinar?",categoria:"Alcance",falta:"Longitud"},{id:"destornillador",name:"Destornillador Pesado",icon:"ph-screwdriver",desc:"Herramienta metálica sólida.",etiqueta:"Un objeto para apretar y aflojar tornillos",propiedades:"Varilla rígida · punta concentrada · longitud fija de 25cm · peso considerable",m1:"Tu cerebro lo congeló en \"destornillador\" para ahorrar energía. Esa etiqueta te impide ver que es, ante todo, una varilla rígida.",usos:"varilla de dirección · palanca de presión",pregunta:"Llegas casi al fondo — pero la punta plana no agarra una esfera. ¿Qué le falta?",categoria:"Alcance",falta:"Agarre"},{id:"lapiceros",name:"Bolígrafos de Plástico (Lote)",icon:"ph-pen",desc:"Cuatro bolígrafos vacíos rígidos.",etiqueta:"Objetos para escribir",propiedades:"Tubos huecos rígidos · longitud acumulable si se unen · extremo liso",m1:"Tu cerebro los congeló en \"bolígrafos\". Esa etiqueta te impide ver que son tubos huecos que pueden unirse para ganar longitud.",usos:"extensión modular · tubo de paso",pregunta:"Si los unes tienes longitud. ¿Qué pondrías en el extremo para que agarren algo?",categoria:"Alcance",falta:"Agarre"}]},
+        cabinet_top:{name:"Estantes y Gabinetes Altos (Mueble Derecho)",desc:"Abres las puertas superiores del mueble de madera de la derecha:",items:[{id:"regla",name:"Regla Metálica (30cm)",icon:"ph-ruler",desc:"Regla de metal rígida.",etiqueta:"Un objeto para medir y trazar líneas rectas",propiedades:"Rigidez total · 30cm de longitud · plana · borde recto preciso",m1:"Tu cerebro la congeló en \"regla\". Esa etiqueta te impide ver que es, ante todo, rigidez dirigida en 30cm.",usos:"soporte rígido · guía de dirección",pregunta:"30cm no llegan a 60 de profundidad — ¿qué necesitarías combinar?",categoria:"Alcance",falta:"Longitud"},{id:"ligas_goma",name:"Ligas de Goma Elásticas",icon:"ph-circle-dashed",desc:"Ligas elásticas.",etiqueta:"Objetos para sujetar papeles juntos",propiedades:"Elasticidad controlada · tensión mecánica · se atan a cualquier forma",m1:"Tu cerebro las congeló en \"ligas de papelería\". Esa etiqueta te impide ver que son conectores elásticos bajo tensión.",usos:"unir piezas bajo tensión · crear fricción de agarre",pregunta:"¿Qué unirías con esto para crear algo que no tienes solo?",categoria:"Agarre",falta:"Estructura"},{id:"alambre_cobre",name:"Alambre de Cobre Maleable",icon:"ph-wave-sine",desc:"Alambre delgado que se puede doblar y amarrar.",etiqueta:"Un objeto para conducir electricidad",propiedades:"Maleable · se dobla y mantiene forma · se puede atar",m1:"Tu cerebro lo congeló en \"alambre eléctrico\". Esa etiqueta te impide ver que es forma moldeable que se mantiene.",usos:"crear ganchos a medida · atar piezas con precisión",pregunta:"Puedes darle cualquier forma — pero sin rigidez no puede dirigir nada al fondo.",categoria:"Agarre",falta:"Rigidez"}]},
+        bookshelf:{name:"Librero Abierto (Mueble Derecho)",desc:"Revisas las repisas centrales y abiertas del mueble de la derecha:",items:[{id:"clips_gigantes",name:"Clips Metálicos Grandes",icon:"ph-paperclip",desc:"Clips de oficina rígidos.",etiqueta:"Objetos para sujetar papeles",propiedades:"Se desdoblan en gancho · metal rígido · forma modificable · 8cm desplegados",m1:"Tu cerebro los congeló en \"clips de oficina\". Esa etiqueta te impide ver que son ganchos de metal en potencia.",usos:"gancho direccional · punto de anclaje",pregunta:"Tienes un gancho. ¿Pero cómo llegas al fondo con 8cm cuando el tubo tiene 60?",categoria:"Agarre",falta:"Longitud"},{id:"carpetas_plast",name:"Carpetas de Plástico Rígidas",icon:"ph-folder",desc:"Carpetas planas y anchas.",etiqueta:"Objetos para organizar y proteger documentos",propiedades:"Rígidas · planas · superficie lisa · borde recto",m1:"Tu cerebro las congeló en \"carpetas\". ¿Qué propiedad física te hizo considerarlas?",usos:"superficie plana rígida · separador",pregunta:"¿Qué propiedad de este objeto te hizo considerarlo?",categoria:"Alcance",falta:"Forma para entrar al tubo"},{id:"globos",name:"Globos de Fiesta (Látex)",icon:"ph-circle",desc:"Globos de látex.",etiqueta:"Objetos para decorar celebraciones",propiedades:"Expansión controlada · presión lateral cuando se inflan · látex flexible",m1:"Tu cerebro los congeló en \"globos de fiesta\". Esa etiqueta te impide ver que son contenedores de expansión controlada.",usos:"generar presión lateral · cambiar volumen interno",pregunta:"¿Qué pasa con el espacio dentro del tubo si algo se expande ahí dentro?",categoria:"No explorada",falta:null},{id:"iman_potente",name:"Imán de Neodimio",icon:"ph-magnet",desc:"Imán de alto poder magnético.",etiqueta:"Un objeto para atraer objetos metálicos",propiedades:"Campo magnético potente · atrae metales ferrosos · fuerza a distancia",m1:"Tu cerebro lo congeló en \"imán\". Esa etiqueta te impide ver que genera fuerza a distancia sin contacto.",usos:"mover objetos metálicos sin tocarlos",pregunta:"Atrae metales sin tocarlos. ¿Hay algo metálico en el aula que pudiera empujar la pelota?",categoria:"Transmisión",falta:"Objeto metálico intermediario"}]},
+        cabinet_bottom:{name:"Cajoneras y Gabinetes Bajos (Mueble Derecho)",desc:"Abres las cajoneras y puertas en la parte inferior del mueble:",items:[{id:"cinta_aislar",name:"Cinta de Aislar Negra",icon:"ph-exclude",desc:"Cinta elástica aislante muy adhesiva.",etiqueta:"Un objeto para aislar cables eléctricos",propiedades:"Adhesión fuerte · flexible · une piezas bajo tensión · resistente a la humedad",m1:"Tu cerebro la congeló en \"cinta aislante\". Esa etiqueta te impide ver que es adhesión resistente.",usos:"unir piezas con fuerza · crear agarres compuestos",pregunta:"¿Qué dos cosas unirías con esto para crear algo que no tienes solo?",categoria:"Agarre",falta:"Estructura"},{id:"cinta_transparente",name:"Cinta Adhesiva de Papelería",icon:"ph-minus",desc:"Cinta adhesiva común. Pierde adherencia con humedad.",etiqueta:"Un objeto para pegar papeles y materiales livianos",propiedades:"Adhesión débil · delgada · pierde agarre con humedad",m1:"Tu cerebro la congeló en \"cinta de papelería\". Esa etiqueta te impide ver que es adhesión temporal rápida.",usos:"unión temporal · marcador de posición",pregunta:"Funciona en seco — ¿pero qué pasa con su adhesión cuando toca el fondo del tubo?",categoria:"Agarre",falta:"Durabilidad"},{id:"chicle",name:"Chicle (Goma de Mascar)",icon:"ph-dot-outline",desc:"Un chicle moldeable y pegajoso.",etiqueta:"Un objeto para mascar",propiedades:"Moldeable · muy pegajoso en superficies lisas · se adhiere y mantiene forma",m1:"Tu cerebro lo congeló en \"chicle\". Esa etiqueta te impide ver que es adhesivo moldeable.",usos:"sellante temporal · adhesivo moldeable",pregunta:"Es pegajoso y moldeable. ¿Qué propiedad de la pelota podría neutralizar esa adhesión?",categoria:"Agarre",falta:"Superficie compatible"}]},
+        upper_cabinets:{name:"Gabinetes Superiores (Pared Trasera)",desc:"Abres los estantes superiores empotrados en la pared del fondo:",items:[{id:"servilletas",name:"Servilletas de Papel",icon:"ph-newspaper",desc:"Servilletas de papel absorbentes.",etiqueta:"Objetos para limpiar y secar superficies",propiedades:"Absorbentes · aíslan temperatura · desechables · maleables",m1:"Tu cerebro las congeló en \"servilletas de papel\". Esa etiqueta te impide ver que son aislantes térmicos disponibles.",usos:"barrera térmica entre mano y objeto caliente",pregunta:"¿En qué situación de este reto necesitarías proteger tus manos del calor?",categoria:"Soporte",falta:null}]},
+        snacks:{name:"Zona de la Cafetera",desc:"Te acercas al rincón derecho de la sala. Hay una cafetera y una botella junto al mueble:",items:[{id:"botella_agua",name:"Botella de Agua (125ml)",icon:"ph-drop",desc:"Botella pequeña de agua. Solo quedan 125ml.",etiqueta:"Un líquido para beber",propiedades:"Agua · sin forma propia · 125ml de volumen disponible · temperatura ambiente",m1:"Tu cerebro la congeló en \"botella de agua\". Esa etiqueta te impide ver que es volumen fluido — aunque limitado.",usos:"verter con precisión · llenar parcialmente un contenedor",pregunta:"Tienes líquido. ¿Pero 125ml son suficientes para cambiar algo dentro de un tubo de 60cm?",categoria:null,falta:null},{id:"cafetera",name:"Cafetera (300ml)",icon:"ph-coffee",desc:"Cafetera con asa. Contiene 300ml de café caliente recién hecho.",etiqueta:"Un electrodoméstico para preparar café",propiedades:"300ml de líquido caliente · con asa para manipular sin quemarse · boca estrecha para verter con control",m1:"Tu cerebro la congeló en \"cafetera\". Esa etiqueta te impide ver que es un contenedor de 300ml de líquido con boca dirigible.",usos:"verter líquido con control · fuente de volumen considerable",pregunta:"Tienes 300ml de líquido y boca para verter con control. ¿Es suficiente volumen para lo que necesitas?",categoria:null,falta:null}]},
+        board:{name:"Fórmulas de la Pizarra",desc:"Revisas las repisas inferiores de la pizarra blanca:",items:[{id:"plumones",name:"Rotulador de Pizarra",icon:"ph-pencil-line",desc:"Rotulador de fieltro cilíndrico de 12cm.",etiqueta:"Un objeto para escribir en la pizarra",propiedades:"Cilíndrico · 12cm de largo · cuerpo rígido · punta de fieltro",m1:"Tu cerebro lo congeló en \"rotulador\". Esa etiqueta te impide ver que es un cilindro rígido de 12cm.",usos:"extensión corta · módulo combinable",pregunta:"¿Longitud o rigidez? ¿Cuánto te faltaría para llegar al fondo?",categoria:"Alcance",falta:"Longitud"},{id:"puntero",name:"Puntero Telescópico Metálico",icon:"ph-arrows-out-line-vertical",desc:"Puntero didáctico extensible de 15 a 50cm. Sin gancho en el extremo.",etiqueta:"Un objeto para señalar elementos en la pizarra",propiedades:"Extensible de 15 a 50cm · metal rígido · punta lisa sin forma de agarre",m1:"Tu cerebro lo congeló en \"puntero\". Esa etiqueta te impide ver que es la extensión rígida más larga del aula.",usos:"alcance máximo disponible · varilla extensible",pregunta:"Llegas al fondo — pero la punta es lisa. ¿Cómo agarras una esfera con eso?",categoria:"Alcance",falta:"Agarre"}]},
+        table2:{name:"Mesa Principal de Juntas",desc:"Revisas los objetos sobre la mesa de juntas:",items:[{id:"libreta",name:"Libreta de Notas",icon:"ph-notebook",desc:"Libreta de pasta dura con hojas en blanco.",etiqueta:"Un objeto para tomar notas y apuntes",propiedades:"Rígida · plana · superficie lisa · pasta dura resistente",m1:"Tu cerebro la congeló en \"libreta\". ¿Qué propiedad física te hizo considerarla?",usos:"superficie plana rígida · base de trabajo",pregunta:"¿Qué propiedad te hizo elegirla — la rigidez, la superficie o algo más?",categoria:"Alcance",falta:"Forma para entrar al tubo"},{id:"lapiz",name:"Lápiz de Madera",icon:"ph-pencil",desc:"Lápiz estándar de 19cm.",etiqueta:"Un objeto para escribir y dibujar",propiedades:"Rígido · 19cm de largo · punta cónica · madera ligera",m1:"Tu cerebro lo congeló en \"lápiz\". Esa etiqueta te impide ver que es una varilla rígida de madera de 19cm.",usos:"extensión corta · módulo combinable",pregunta:"19cm no llegan a 60 — ¿qué necesitarías combinarlo para alcanzar el fondo?",categoria:"Alcance",falta:"Longitud"},{id:"vasos_vidrio",name:"Vasos de Vidrio (Servicio)",icon:"ph-glass-water",desc:"Vasos de vidrio del servicio de mesa. Capacidad de 250ml.",etiqueta:"Objetos para beber en la mesa",propiedades:"Impermeables · 250ml de capacidad · vidrio · forma cilíndrica",m1:"Tu cerebro los congeló en \"vasos de vidrio\". Esa etiqueta te impide ver que son transportadores de volumen con precisión.",usos:"dosificar líquidos · transportar volumen con una mano",pregunta:"¿Qué podrías transportar con esto que cambiara algo dentro del tubo?",categoria:null,falta:null}]},
+        plants:{name:"Plantas de la Sala",desc:"Revisas las plantas decorativas en las esquinas de la sala:",items:[{id:"planta_grande",name:"Planta de Interior (Grande)",icon:"ph-plant",desc:"Planta ornamental grande en maceta plástica.",etiqueta:"Un objeto para decorar el espacio",propiedades:"Maceta con platillo de riego · agua acumulada en poca cantidad",m1:"Tu cerebro la congeló en \"planta decorativa\". Esa etiqueta te impide ver que contiene agua acumulada.",usos:"fuente de agua limitada · volumen pequeño disponible",pregunta:"Hay líquido — pero ¿en cantidad suficiente para cambiar algo dentro del tubo?",categoria:null,falta:null},{id:"regadera",name:"Regadera (200ml)",icon:"ph-shower",desc:"Regadera de plástico para riego interior. Contiene 200ml de agua.",etiqueta:"Un objeto para regar plantas de interior",propiedades:"200ml de agua · contenedor con asa · boca direccionable",m1:"Tu cerebro la congeló en \"regadera\". Esa etiqueta te impide ver que es un contenedor de 200ml con boca dirigible.",usos:"verter con control · fuente de volumen moderado",pregunta:"Tienes 200ml de agua. ¿Es suficiente volumen para lo que necesitas?",categoria:null,falta:null}]}
+    };
+
+    let currentToolboxModule=1, activeInfographicTab='challenge';
+
+    /* ═══════════════════════════════════════════════
+       AUDIO
+    ═══════════════════════════════════════════════ */
+    function playSynthSound(freq,duration,type='sine'){try{const a=new(window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(0.08,a.currentTime);g.gain.exponentialRampToValueAtTime(0.005,a.currentTime+duration);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+duration);}catch(e){}}
+    function playSfx(f,t,d){playSynthSound(f,d,t);}
+    function playScanSound(){try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.type='sine';o.frequency.setValueAtTime(880,c.currentTime);o.frequency.exponentialRampToValueAtTime(1200,c.currentTime+0.12);g.gain.setValueAtTime(0.06,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.15);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.15);}catch(e){}}
+
+    /* ═══════════════════════════════════════════════
+       ALERTAS
+    ═══════════════════════════════════════════════ */
+    function showCustomAlert(title,message,type='info'){
+        const b=document.getElementById('alert-box'),c=document.getElementById('alert-card'),i=document.getElementById('alert-icon'),t=document.getElementById('alert-title'),m=document.getElementById('alert-message');
+        if(!b)return;
+        if(type==='error'){c.className="p-4 rounded-xl border border-red-500/30 bg-red-950/90 text-red-200 flex items-start gap-3 shadow-2xl backdrop-blur-md";i.innerHTML=`<i class="ph-light ph-warning-octagon text-red-400"></i>`;playSynthSound(130,0.5,'sawtooth');}
+        else if(type==='success'){c.className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/90 text-emerald-200 flex items-start gap-3 shadow-2xl backdrop-blur-md";i.innerHTML=`<i class="ph-light ph-trophy text-emerald-400"></i>`;playSynthSound(440,0.15,'sine');setTimeout(()=>playSynthSound(660,0.3,'sine'),150);}
+        else{c.className="p-4 rounded-xl border border-amber-500/30 bg-slate-900/95 text-amber-200 flex items-start gap-3 shadow-2xl backdrop-blur-md";i.innerHTML=`<i class="ph-light ph-info text-amber-400"></i>`;playSynthSound(400,0.18,'triangle');}
+        t.innerText=title;m.innerText=message;
+        b.classList.remove('translate-y-24','opacity-0');b.classList.add('translate-y-0','opacity-100');
+        setTimeout(()=>{b.classList.add('translate-y-24','opacity-0');b.classList.remove('translate-y-0','opacity-100');},5500);
+    }
+
+    /* ═══════════════════════════════════════════════
+       FASES
+    ═══════════════════════════════════════════════ */
+    function changePhase(phase){
+        ['intro','sandbox','reflection'].forEach(p=>{document.getElementById(`phase-${p}`).classList.add('hidden');document.getElementById(`btn-phase-${p}`).className="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-white";});
+        if(phase==='intro'){document.getElementById('phase-intro').classList.remove('hidden');document.getElementById('btn-phase-intro').className="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 bg-[#d8d1c2] text-slate-950 shadow-md";}
+        else if(phase==='sandbox'){document.getElementById('phase-sandbox').classList.remove('hidden');document.getElementById('btn-phase-sandbox').className="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 bg-[#d8d1c2] text-slate-950 shadow-md";initLupaEffect();setTimeout(showInitialGlimmers,400);}
+        else if(phase==='reflection'){document.getElementById('phase-reflection').classList.remove('hidden');document.getElementById('btn-phase-reflection').className="px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 flex items-center gap-1.5 bg-[#d8d1c2] text-slate-950 shadow-md";renderStickyNotes();}
+        playSynthSound(300,0.1,'triangle');
+    }
+
+    function toggleLupaMode(){isLupaActive=!isLupaActive;const t=document.getElementById('lupa-text'),i=document.getElementById('lupa-icon');if(!isLupaActive){document.getElementById('lens').style.display='none';t.innerText="Lupa off";i.className="ph-light ph-magnifying-glass-minus";}else{t.innerText="Lupa";i.className="ph-light ph-magnifying-glass";}}
+
+    function initLupaEffect(){
+        const container=document.getElementById('room-explore-area'),img=document.getElementById('classroom-photo'),lens=document.getElementById('lens');
+        if(!container||!img||!lens)return;
+        const hotspotAreas=[{id:'table',x1:.41,y1:.66,x2:.59,y2:.84},{id:'cabinet_top',x1:.81,y1:.00,x2:.93,y2:.18},{id:'bookshelf',x1:.81,y1:.18,x2:.93,y2:.62},{id:'cabinet_bottom',x1:.81,y1:.62,x2:.93,y2:.88},{id:'upper_cabinets',x1:.31,y1:.14,x2:.71,y2:.24},{id:'board',x1:.30,y1:.25,x2:.71,y2:.49},{id:'table2',x1:.25,y1:.60,x2:.55,y2:.80},{id:'plants',x1:.10,y1:.30,x2:.20,y2:.70}];
+        const snacksArea={id:'snacks',x1:.91,y1:.30,x2:1.00,y2:.76};
+        let lastHotspot=null;
+        container.addEventListener('mouseenter',()=>{lens.style.display='block';});
+        container.addEventListener('mouseleave',()=>{lens.style.display='none';if(lastHotspot){lens.classList.remove('on-hotspot');lastHotspot=null;}});
+        container.addEventListener('mousemove',(e)=>{
+            const rect=container.getBoundingClientRect();const x=e.clientX-rect.left;const y=e.clientY-rect.top;const rx=x/rect.width;const ry=y/rect.height;
+            lens.style.left=`${x}px`;lens.style.top=`${y}px`;lens.style.transform='translate(-50%,-50%)';lens.style.position='absolute';
+            const ratioX=img.naturalWidth/rect.width;const ratioY=img.naturalHeight/rect.height;
+            const bx=-((x*ratioX*1.35)-70);const by=-((y*ratioY*1.35)-70);
+            lens.style.backgroundImage=`url('${img.src}')`;lens.style.backgroundSize=`${img.naturalWidth*1.35}px ${img.naturalHeight*1.35}px`;lens.style.backgroundPosition=`${bx}px ${by}px`;
+            const areas=errorCount>=3?[...hotspotAreas,snacksArea]:hotspotAreas;
+            const hit=areas.find(a=>rx>=a.x1&&rx<=a.x2&&ry>=a.y1&&ry<=a.y2);
+            if(hit&&hit.id!==lastHotspot){lens.classList.add('on-hotspot');playScanSound();lastHotspot=hit.id;}
+            else if(!hit&&lastHotspot){lens.classList.remove('on-hotspot');lastHotspot=null;}
+        });
+    }
+
+    function showInitialGlimmers(){
+        const zones=['hotspot-table','hotspot-cabinets','hotspot-bookshelf','hotspot-board','hotspot-plants'];
+        if(snacksUnlocked)zones.push('hotspot-snacks');
+        zones.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hotspot-glimmer');});
+        setTimeout(()=>{zones.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hotspot-glimmer');});},3000);
+    }
+
+    /* ═══════════════════════════════════════════════
+       EXPLORACIÓN — clic directo a la mesa
+    ═══════════════════════════════════════════════ */
+    function exploreZone(zoneId){
+        const guide=document.getElementById('explore-guide');
+        if(guide&&!guide.classList.contains('guide-hidden'))guide.classList.add('guide-hidden');
+        if(zoneId==='snacks'&&!snacksUnlocked){showCustomAlert("Zona aún no disponible","Sigue explorando el aula. Algo podría cambiar después de tu primer intento.","info");return;}
+        playSynthSound(450,0.15,'sine');
+        const zone=classroomDB[zoneId];if(!zone)return;
+        const panel=document.getElementById('hotspot-reveal-panel');panel.classList.remove('hidden');
+        document.getElementById('hotspot-tag').innerText=`Zona: ${zone.name}`;
+        document.getElementById('hotspot-title').innerText="Materiales Ocultos Identificados";
+        document.getElementById('hotspot-desc').innerText=zone.desc;
+        const grid=document.getElementById('hotspot-items-grid');grid.innerHTML='';
+        zone.items.forEach(item=>{
+            const isDrafted=draftCombination.some(d=>d&&d.id===item.id);
+            const card=document.createElement('div');
+            card.className=`p-3 rounded-xl bg-slate-950 border transition-all cursor-pointer ${isDrafted?'opacity-40 border-slate-800 cursor-default':'border-slate-800 hover:border-amber-500/30 hover:bg-slate-900/60'}`;
+            card.innerHTML=`<div class="flex items-center gap-2.5"><div class="w-9 h-9 rounded-lg bg-slate-800 text-amber-400 flex items-center justify-center shrink-0">${getIconSvg(item.icon)}</div><div class="flex-grow min-w-0"><h5 class="font-bold text-xs text-white truncate">${item.name}</h5><p class="text-[10px] text-slate-500 mt-0.5">${isDrafted?'Ya en la mesa':'Clic para añadir a la mesa'}</p></div>${isDrafted?'<span class="text-emerald-400 text-xs shrink-0">✓</span>':'<span class="text-amber-500/60 text-xs shrink-0">+</span>'}</div>`;
+            if(!isDrafted)card.onclick=()=>assignToFreeSlot(zoneId,item.id);
+            grid.appendChild(card);
+        });
+        showCustomAlert("Zona Inspeccionada",`Has descubierto los objetos de: ${zone.name}.`,"info");
+    }
+
+    function closeHotspotPanel(){document.getElementById('hotspot-reveal-panel').classList.add('hidden');}
+
+    function getIconSvg(ic){const icons={'ph-flow-arrow':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M237.66,106.35l-80-80A8,8,0,0,0,144,32V72H40a8,8,0,0,0-8,8v96a8,8,0,0,0,8,8H144v40a8,8,0,0,0,13.66,5.66l80-80A8,8,0,0,0,237.66,106.35Z"/></svg>','ph-scissors':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224,88a32,32,0,1,0-50.93,25.77L134,128l39.07,14.23A32,32,0,1,0,184,168a32.07,32.07,0,0,0-14.49-26.84L204.49,128l-34.98-13.16A32,32,0,0,0,224,88ZM176,64a16,16,0,1,1-16,16A16,16,0,0,1,176,64ZM176,184a16,16,0,1,1,16-16A16,16,0,0,1,176,184ZM32,128a8,8,0,0,1,8-8H96l16,8L96,136H40A8,8,0,0,1,32,128Z"/></svg>','ph-screwdriver':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M235.09,20.91a8,8,0,0,0-11.31,0l-36,36-9.38-9.38a8,8,0,0,0-11.31,11.31L176,67.72,128,115.72,88,75.72l48-48V16a8,8,0,0,0-8-8,88,88,0,0,0-88,88,87.09,87.09,0,0,0,7.87,36.25L16,164a24,24,0,0,0,0,34l42,42a24,24,0,0,0,34,0l31.74-31.74A87.09,87.09,0,0,0,160,216a88,88,0,0,0,88-88,8,8,0,0,0-8-8h-11.72L235.09,32.22A8,8,0,0,0,235.09,20.91Z"/></svg>','ph-pen':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224,56a32,32,0,0,0-54.63-22.63L35.72,166.09A15.93,15.93,0,0,0,31,177.39L32,224a8,8,0,0,0,8,8l46.63-1a15.93,15.93,0,0,0,11.3-4.72L230.63,93.37A32,32,0,0,0,224,56Z"/></svg>','ph-ruler':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M239.2,97.29,158.71,16.8A16.07,16.07,0,0,0,147.58,12a16,16,0,0,0-11.13,4.68l-120,120A16,16,0,0,0,12,148a16.07,16.07,0,0,0,4.8,11.13l80.49,80.49A16.07,16.07,0,0,0,108.42,244a16,16,0,0,0,11.13-4.68l120-120A16,16,0,0,0,244,108.42,16.07,16.07,0,0,0,239.2,97.29Zm-96,112L64.7,130.82l11.64-11.63,22.06,22.06a8,8,0,0,0,11.31-11.31L87.65,107.88l11.57-11.57,11.28,11.28a8,8,0,1,0,11.31-11.31L110.53,84.99l11.57-11.57,22.06,22.06a8,8,0,0,0,11.31-11.31L133.41,62.11l11.63-11.64L224,129Z"/></svg>','ph-circle-dashed':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M136,24V16a8,8,0,0,0-16,0v8a8,8,0,0,0,16,0Zm0,208v-8a8,8,0,0,0-16,0v8a8,8,0,0,0,16,0Zm112-120h-8a8,8,0,0,0,0,16h8a8,8,0,0,0,0-16ZM24,120H16a8,8,0,0,0,0,16h8a8,8,0,0,0,0-16Z"/></svg>','ph-wave-sine':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M232,128c0,23.4-25.07,32-48,32s-48-8.6-48-32,25.07-32,48-32S232,104.6,232,128ZM72,96C49.07,96,24,104.6,24,128s25.07,32,48,32c13.62,0,27.12-3.24,37.65-9.83A8,8,0,0,0,96,136a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V152c6.6,2.7,13.77,4,20,4,22.93,0,48-8.6,48-32S146.93,96,136,96c-13.62,0-27.12,3.24-37.65,9.83A8,8,0,0,0,96,104h16a8,8,0,0,0,0-16H96v8c-6.6-2.7-13.77-4-20-4Z"/></svg>','ph-paperclip':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66,82.34l-96,96a56,56,0,0,1-79.2-79.2l96-96a40,40,0,0,1,56.56,56.56l-96,96a24,24,0,0,1-33.94-33.94l72-72a8,8,0,0,1,11.32,11.32l-72,72a8,8,0,0,0,11.32,11.32l96-96a24,24,0,0,0-33.94-33.94l-96,96a40,40,0,0,0,56.56,56.56l96-96a8,8,0,0,1,11.32,11.32Z"/></svg>','ph-folder':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72Z"/></svg>','ph-circle':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"/></svg>','ph-magnet':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M184,32H72A16,16,0,0,0,56,48V136a72,72,0,0,0,144,0V48A16,16,0,0,0,184,32ZM120,192a8,8,0,0,1-16,0V160a8,8,0,0,1,16,0Zm32,0a8,8,0,0,1-16,0V160a8,8,0,0,1,16,0Z"/></svg>','ph-exclude':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M232,96a8,8,0,0,1-8,8H200v24h24a8,8,0,0,1,0,16H200v24h24a8,8,0,0,1,0,16H200v16a16,16,0,0,1-16,16H168V224a8,8,0,0,1-16,0V200H128v24a8,8,0,0,1-16,0V200H88v24a8,8,0,0,1-16,0V200H56a16,16,0,0,1-16-16V168H16a8,8,0,0,1,0-16H40V128H16a8,8,0,0,1,0-16H40V88H16a8,8,0,0,1,0-16H40V56A16,16,0,0,1,56,40H72V16a8,8,0,0,1,16,0V40h24V16a8,8,0,0,1,16,0V40h24V16a8,8,0,0,1,16,0V40h16a16,16,0,0,1,16,16V72h24A8,8,0,0,1,232,96Z"/></svg>','ph-minus':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128Z"/></svg>','ph-dot-outline':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="40"/></svg>','ph-newspaper':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM80,176a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0Zm96-64H112a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Z"/></svg>','ph-drop':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>','ph-coffee':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M80,40a8,8,0,0,1,8-8c17.19,0,32,14.57,32,32s-14.81,32-32,32a8,8,0,0,1,0-16c8.82,0,16-7.42,16-16S88.82,40,80,40ZM248,104v8a40,40,0,0,1-40,40H192v8a88.1,88.1,0,0,1-88,88H72a88.1,88.1,0,0,1-88-88V104a8,8,0,0,1,8-8H240A8,8,0,0,1,248,104Zm-56,32h8a24,24,0,0,0,0-48H192Z"/></svg>','ph-pencil-line':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31l123.31-123.3A16,16,0,0,0,227.31,73.37ZM48,208V163.31l53.37,53.38L48,208ZM224,224H56a8,8,0,0,1,0-16H224a8,8,0,0,1,0,16Z"/></svg>','ph-arrows-out-line-vertical':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66,210.34l-32,32a8,8,0,0,1-11.32-11.32L186.69,215H69.31l16.35,16.35a8,8,0,0,1-11.32,11.31l-32-32a8,8,0,0,1,0-11.32l32-32a8,8,0,0,1,11.32,11.32L69.31,195H186.69l-16.35-16.35a8,8,0,0,1,11.32-11.31l32,32A8,8,0,0,1,213.66,210.34ZM42.34,45.66,58.69,61H186.69L170.34,45.66A8,8,0,0,1,181.66,34.34l32,32a8,8,0,0,1,0,11.32l-32,32a8,8,0,0,1-11.32-11.32L186.69,82H69.31L85.66,98.34A8,8,0,0,1,74.34,109.66l-32-32a8,8,0,0,1,0-11.32l32-32A8,8,0,0,1,42.34,45.66ZM136,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h0A8,8,0,0,1,136,128Z"/></svg>','ph-notebook':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M208,24H72A16,16,0,0,0,56,40V56H48a8,8,0,0,0,0,16h8v24H48a8,8,0,0,0,0,16h8v24H48a8,8,0,0,0,0,16h8v24H48a8,8,0,0,0,0,16h8v16a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V40A16,16,0,0,0,208,24ZM72,40H208V80H72Zm136,176H72V96H208Z"/></svg>','ph-pencil':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M227.31,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.32l123.31-123.3A16,16,0,0,0,227.31,73.37ZM48,208V163.31l53.38,53.38L48,208Z"/></svg>','ph-glass-water':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M216,40H40a8,8,0,0,0-7.59,10.53l48,144A8,8,0,0,0,88,200h80a8,8,0,0,0,7.59-5.47l48-144A8,8,0,0,0,216,40Zm-57.3,144H97.3L56.93,56H199.07Z"/></svg>','ph-plant':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M247.62,43.26A8,8,0,0,0,240,40c-1.63,0-40.1.88-73.65,22.66A91.84,91.84,0,0,0,136,97.86V80a56.06,56.06,0,0,0-56-56,8,8,0,0,0-8,8c0,1.53.93,37.85,28.51,65.43A73.32,73.32,0,0,0,136,118.26v17.95c-6.12-16.63-15.61-30.07-24.93-40.38a8,8,0,0,0-12,10.59c15.5,17.57,27.9,40.58,27.9,65.58v52a8,8,0,0,0,16,0V168a75.93,75.93,0,0,1,14.27-44.08C180.5,101.5,207.85,56.62,248.37,56A8,8,0,0,0,247.62,43.26Z"/></svg>','ph-shower':'<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M223.9,80.5C221.75,55.55,201.78,36,176.78,36A47.73,47.73,0,0,0,143,49.5L51,141.5A16,16,0,0,0,51,164l41,41a16,16,0,0,0,22.63,0l92-92A47.94,47.94,0,0,0,223.9,80.5ZM101.66,193.66,60,152,152,60c.66-.66,1.34-1.29,2-1.89l41.89,41.89C195.29,100.66,194.66,101.34,194,102ZM160,216a8,8,0,0,1-8,8H104a8,8,0,0,1,0-16h48A8,8,0,0,1,160,216Zm48,0a8,8,0,0,1-8,8H192a8,8,0,0,1,0-16h8A8,8,0,0,1,208,216Zm-80,16a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h24A8,8,0,0,1,128,232Z"/></svg>'};return icons[ic]||`<svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="80"/></svg>`;}
+
+    /* ═══════════════════════════════════════════════
+       MESA DE TRABAJO
+    ═══════════════════════════════════════════════ */
+    function assignToFreeSlot(zoneId,itemId){
+        const item=classroomDB[zoneId].items.find(i=>i.id===itemId);if(!item)return;
+        const idx=draftCombination.findIndex(s=>s===null);
+        if(idx===-1){showCustomAlert("Mesa de Trabajo Llena","La mesa de ensamble ya tiene los 3 objetos. Quita uno para hacer espacio.","error");return;}
+        selectionCount++;draftCombination[idx]=item;
+        playSynthSound(600,0.15,'sine');
+        addLogEntry(new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),`Añadido al Slot ${idx+1}: [${item.name}]`,'info');
+        renderEnsembleSlots();
+        const slotEl=document.getElementById(`combine-slot-${idx}`);
+        if(slotEl){slotEl.classList.add('slot-pop');setTimeout(()=>slotEl.classList.remove('slot-pop'),400);}
+        exploreZone(zoneId);
+
+        // ── Modal semilla: aparece en la primera selección del ciclo 2
+        // Condición: el usuario ya tuvo exactamente 1 fallo (cerró el modal 1)
+        // y todavía no ha visto el modal semilla esta sesión
+        if(errorCount===1 && !seedModalShown){
+            seedModalShown=true;
+            setTimeout(()=>showSeedModal(),600);
+        }
+    }
+
+    function removeDraftItem(i){
+        if(!draftCombination[i]){showCustomAlert("Slot vacío","Haz clic en los objetos del panel para añadirlos.","info");return;}
+        addLogEntry(new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),`Removido del Slot ${i+1}: [${draftCombination[i].name}]`,'info');
+        draftCombination[i]=null;playSynthSound(300,0.1,'triangle');renderEnsembleSlots();
+        const panel=document.getElementById('hotspot-reveal-panel');
+        if(!panel.classList.contains('hidden')){const tag=document.getElementById('hotspot-tag').innerText;const key=Object.keys(classroomDB).find(k=>tag.includes(classroomDB[k].name));if(key)exploreZone(key);}
+    }
+
+    function clearEnsemble(){
+        draftCombination=[null,null,null];selectionCount=0;playSynthSound(250,0.1,'sine');renderEnsembleSlots();
+        const panel=document.getElementById('hotspot-reveal-panel');
+        if(!panel.classList.contains('hidden')){const tag=document.getElementById('hotspot-tag').innerText;const key=Object.keys(classroomDB).find(k=>tag.includes(classroomDB[k].name));if(key)exploreZone(key);}
+    }
+
+    function renderEnsembleSlots(){
+        for(let i=0;i<3;i++){
+            const slot=document.getElementById(`combine-slot-${i}`);const item=draftCombination[i];
+            if(item){slot.className="aspect-square bg-slate-950 border-2 border-amber-500/40 rounded-xl flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:border-red-500/50 transition-all group relative";slot.innerHTML=`<i class="ph-light ${item.icon} text-amber-400 text-xl"></i><span class="text-[9px] text-white font-extrabold block truncate w-full leading-tight mt-1">${item.name}</span><span class="absolute inset-0 bg-red-950/90 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] font-black text-red-400 transition-opacity">Quitar</span>`;}
+            else{slot.className="aspect-square bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:border-amber-500/50 transition-all group";slot.innerHTML=`<i class="ph-light ph-plus text-slate-600 text-lg group-hover:scale-110 transition-transform"></i><span class="text-[9px] text-slate-500 font-bold mt-1">Slot ${i+1}</span><span class="text-[7px] text-slate-600 font-medium">Vacío</span>`;}
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       LÓGICA DE COMBINACIONES
+    ═══════════════════════════════════════════════ */
+    const VOLUMEN_MINIMO=400;
+    function calcularVolumenLiquido(ids){let v=0;if(ids.includes('botella_agua'))v+=125;if(ids.includes('cafetera'))v+=300;if(ids.includes('regadera'))v+=200;return v;}
+
+    function executeCombination(){
+        const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        const active=draftCombination.filter(i=>i!==null);
+        if(active.length===0){showCustomAlert("Mesa Vacía","Añade materiales del aula antes de probar.","error");return;}
+        const ids=active.map(d=>d.id);const vol=calcularVolumenLiquido(ids);
+
+        if(vol>=VOLUMEN_MINIMO){
+            const liq=[];if(ids.includes('botella_agua'))liq.push('agua (125ml)');if(ids.includes('cafetera'))liq.push('café (300ml)');if(ids.includes('regadera'))liq.push('regadera (200ml)');
+            animateWaterPour(ids.includes('cafetera')?"#78350f":"#38bdf8",liq.join(' + '),100);
+            addLogEntry(time,`Éxito: Flotación con ${liq.join(' + ')} — ${vol}ml totales.`,"success");
+            showCustomAlert("¡FLOTACIÓN LOGRADA!",`Combinaste ${liq.join(' + ')} — ${vol}ml. La pelota flotó hasta el borde.`,"success");
+            enableReflectionChallenge();return;
+        }
+        if(vol>0&&vol<VOLUMEN_MINIMO){showCustomAlert("Volumen insuficiente",`Vertiste ${vol}ml. El tubo necesita al menos ${VOLUMEN_MINIMO}ml. Te faltan ${VOLUMEN_MINIMO-vol}ml.`,"error");addLogEntry(time,`Fallo: ${vol}ml insuficientes.`,"error");triggerFailureFramework();return;}
+        if(ids.includes('regla')&&ids.includes('cinta_aislar')&&ids.includes('clips_gigantes')){showCustomAlert("Sin superficie de anclaje","Llegaste al fondo — pero la pelota es esférica y lisa. El gancho resbala.","error");addLogEntry(time,"Fallo: Sin anclaje en objeto esférico.","error");triggerFailureFramework();return;}
+        if(ids.includes('cable_eth')&&ids.includes('clips_gigantes')){showCustomAlert("Inestabilidad estructural","El cable es demasiado flexible para dirigir el gancho con precisión a 60cm.","error");addLogEntry(time,"Fallo: Estructura flexible.","error");triggerFailureFramework();return;}
+        if(ids.includes('iman_potente')){showCustomAlert("Fallo magnético","El imán atrae metales — pero la pelota es de caucho y fieltro.","error");addLogEntry(time,"Fallo: Material no ferroso.","error");triggerFailureFramework();return;}
+        showCustomAlert("Hipótesis descartada","Esta combinación no genera el efecto físico necesario.","error");addLogEntry(time,"Combinación ineficaz.","error");triggerFailureFramework();
+    }
+
+    /* ═══════════════════════════════════════════════
+       MODAL SEMILLA — Marco de interpretación
+       Aparece una sola vez: primera selección del ciclo 2
+    ═══════════════════════════════════════════════ */
+    function showSeedModal(){
+        document.getElementById('seed-modal-input').value='';
+        document.getElementById('seed-modal').classList.remove('hidden');
+        playSynthSound(480,0.2,'sine');
+        SCORM.saveData({seed_modal_mostrado:true,seed_modal_tiempo:new Date().toISOString()});
+    }
+
+    function closeSeedModal(){
+        const input=document.getElementById('seed-modal-input').value.trim();
+        document.getElementById('seed-modal').classList.add('hidden');
+        if(input.length>0){
+            SCORM.saveData({seed_modal_respuesta:input});
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       FRAMEWORK DE FALLOS — lógica completa M1-M4
+    ═══════════════════════════════════════════════ */
+    function triggerFailureFramework(){
+        errorCount++;
+        SCORM.saveData({total_fallos:errorCount,[`fallo_${errorCount}_tiempo`]:new Date().toISOString()});
+
+        // M1 → fallo 1 | M3 → fallo 2 | M4 fallo → fallo 4
+        // M2 es el modal semilla — aparece en primera selección del ciclo 2, no en el fallo
+        if(errorCount===1){
+            setTimeout(()=>showWhisperModal(1),1000);
+        } else if(errorCount===2){
+            // Fallo 2: modal 3 + desbloqueo de snacks
+            setTimeout(()=>showWhisperModal(3),1000);
+            setTimeout(()=>unlockSnacks(),1500);
+        } else if(errorCount===3){
+            setTimeout(()=>showWhisperModal(4),1000); // reutiliza M4 fallo como M4 del flujo
+        } else if(errorCount===4){
+            // En fallo 4 — si el usuario llegó hasta aquí sin resolver
+            setTimeout(()=>showWhisperModal(4),1000);
+        }
+        // Fallos 5+ → sin modal
+    }
+
+    /* ═══════════════════════════════════════════════
+       MODAL DE SUSURRO — renderizado dinámico
+    ═══════════════════════════════════════════════ */
+    function showWhisperModal(modalNum){
+        const data=whisperDatabase[modalNum];if(!data)return;
+
+        // Badge
+        const badge=document.getElementById('whisper-modal-badge');
+        badge.innerText=data.badge;
+        badge.className=`step-label-tag ${data.badgeColor}`;
+
+        // Susurro — preservar saltos de línea
+        const whisperEl=document.getElementById('whisper-text');
+        whisperEl.innerHTML=data.whisper.split('\n').map(l=>l?`<span>${l}</span>`:'<br>').join('');
+
+        // Paso A — opciones de radio
+        document.getElementById('step-a-label').innerText=data.stepA.label;
+        document.getElementById('step-a-question').innerText=data.stepA.question;
+        const stepAOptions=document.getElementById('step-a-options');
+        stepAOptions.innerHTML='';
+        data.stepA.options.forEach(opt=>{
+            const div=document.createElement('label');
+            div.className='step-option';
+            div.innerHTML=`<input type="radio" name="step-a-radio" value="${opt.value}"><div class="step-radio"></div><span class="step-label">${opt.text}</span>`;
+            div.addEventListener('click',()=>{
+                document.querySelectorAll('.step-option').forEach(o=>o.classList.remove('selected'));
+                div.classList.add('selected');
+            });
+            stepAOptions.appendChild(div);
+        });
+
+        // Paso B — textarea o radio según tipo
+        document.getElementById('step-b-label').innerText=data.stepB.label;
+        document.getElementById('step-b-question').innerText=data.stepB.question;
+        const stepBContent=document.getElementById('step-b-content');
+        if(data.stepB.type==='textarea'){
+            stepBContent.innerHTML=`<textarea class="open-field" rows="2" placeholder="${data.stepB.placeholder||'Escribe aquí...'}"></textarea>`;
+        } else if(data.stepB.type==='radio'){
+            stepBContent.innerHTML='';
+            data.stepB.options.forEach(opt=>{
+                const div=document.createElement('label');
+                div.className='step-option';
+                div.innerHTML=`<input type="radio" name="step-b-radio" value="${opt.value}"><div class="step-radio"></div><span class="step-label">${opt.text}</span>`;
+                div.addEventListener('click',()=>{
+                    stepBContent.querySelectorAll('.step-option').forEach(o=>o.classList.remove('selected'));
+                    div.classList.add('selected');
+                });
+                stepBContent.appendChild(div);
+            });
+        }
+
+        // Paso C — siempre textarea
+        document.getElementById('step-c-label').innerText=data.stepC.label;
+        document.getElementById('step-c-question').innerText=data.stepC.question;
+        document.getElementById('step-c-input').value='';
+
+        // Guardar referencia al módulo para redirigir al toolbox
+        document.getElementById('theory-modal').dataset.targetModule=data.module;
+
+        document.getElementById('theory-modal').classList.remove('hidden');
+    }
+
+    function closeTheoryModal(){
+        document.getElementById('theory-modal').classList.add('hidden');
+        clearEnsemble();
+    }
+
+    function handleModalRedirection(){
+        const target=parseInt(document.getElementById('theory-modal').dataset.targetModule)||1;
+        closeTheoryModal();selectToolboxModule(target);toggleToolbox();
+    }
+
+    function unlockSnacks(){
+        snacksUnlocked=true;
+        setTimeout(()=>{const el=document.getElementById('hotspot-snacks');if(el){el.classList.add('hotspot-glimmer');setTimeout(()=>el.classList.remove('hotspot-glimmer'),3000);}},800);
+        setTimeout(()=>showCustomAlert("Zona desbloqueada","Al detenerte, notaste algo que antes no habías considerado. Hay una zona del aula que todavía no exploraste.","info"),1200);
+    }
+
+    /* ═══════════════════════════════════════════════
+       SIMULACIÓN FÍSICA
+    ═══════════════════════════════════════════════ */
+    function animateWaterPour(color,name,targetLevel){
+        if(isBallExtracted)return;
+        playSynthSound(200,1.2,'sine');
+        let current=waterLevel;
+        document.getElementById('liquid-volume').style.backgroundColor=color+"90";
+        const container=document.getElementById('liquid-particles');container.innerHTML='';
+        for(let i=0;i<30;i++){const p=document.createElement('div');p.className='absolute bottom-0 rounded-full animate-bounce';p.style.width=`${Math.random()*5+2}px`;p.style.height=p.style.width;p.style.backgroundColor=color;p.style.left=`${Math.random()*100}%`;p.style.bottom=`${Math.random()*100}%`;p.style.opacity=Math.random();container.appendChild(p);}
+        const interval=setInterval(()=>{if(current>=targetLevel){clearInterval(interval);waterLevel=targetLevel;updateBallPosition();}else{current+=5;waterLevel=current;updateBallPosition();}},50);
+    }
+
+    function triggerFisicaError(type){
+        const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        if(type==='hands'){showCustomAlert("🛑 REGLA INFRINGIDA","Está prohibido introducir las manos o dedos en el cilindro.","error");addLogEntry(time,"Infracción: Intento de meter las manos.","error");}
+        else if(type==='move'){showCustomAlert("🛑 CILINDRO FIJO","El cilindro está fijado al suelo. No se permite moverlo.","error");addLogEntry(time,"Infracción: Intento de voltear el tubo.","error");}
+    }
+
+    function updateBallPosition(){
+        const ball=document.getElementById('tennis-ball'),btn=document.getElementById('btn-extract-ball'),badge=document.getElementById('ball-status-badge'),liq=document.getElementById('liquid-volume');
+        if(!ball||!btn||!badge||!liq)return;
+        liq.style.height=`${waterLevel}%`;ball.style.bottom=`${8+(waterLevel/100)*208}px`;
+        if(waterLevel>=95){btn.disabled=false;btn.className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 font-black py-3 rounded-xl text-xs shadow-lg shadow-emerald-500/25 transition-all cursor-pointer flex items-center justify-center gap-1.5 animate-pulse";badge.innerText="¡Al alcance! (60cm)";badge.className="px-3 py-2 rounded-xl text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-center animate-bounce";}
+        else{btn.disabled=true;btn.className="w-full bg-[#d6b36a] hover:bg-[#c8a458] text-[#2b2114] font-semibold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 shadow-[0_6px_20px_rgba(214,179,106,0.22)]";badge.innerText="Atrapada en el fondo";badge.className="px-3 py-2 rounded-xl text-sm font-black bg-[#d8d1c2]/10 text-amber-400 border border-amber-500/20 text-center";}
+    }
+
+    function triggerConfettiShower(){
+        const colors=['#f59e0b','#10b981','#3b82f6','#ec4899','#f43f5e','#a855f7','#06b6d4'];
+        for(let i=0;i<150;i++){const p=document.createElement('div');p.className='confetti-piece';const c=colors[Math.floor(Math.random()*colors.length)];p.style.backgroundColor=c;const s=Math.random()*8+6;p.style.width=`${s}px`;p.style.height=`${s}px`;if(Math.random()>.5)p.style.borderRadius='50%';p.style.left=`${Math.random()*100}vw`;p.style.animationDelay=`${Math.random()*2.5}s`;p.style.animationDuration=`${Math.random()*2.5+2}s`;document.body.appendChild(p);setTimeout(()=>p.remove(),6000);}
+    }
+
+    function extractBallSuccess(){
+        isBallExtracted=true;
+        document.getElementById('ball-status-badge').className="px-3 py-2 rounded-xl text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-center";
+        document.getElementById('ball-status-badge').innerText="EXTRAÍDA";
+        const ball=document.getElementById('tennis-ball');
+        ball.style.transition="all 0.8s cubic-bezier(0.175,0.885,0.32,1.275)";ball.style.transform="translateY(-100px) scale(0)";ball.style.opacity="0";
+        setTimeout(()=>ball.classList.add('hidden'),800);
+        playSynthSound(330,0.25,'sine');setTimeout(()=>playSynthSound(440,0.25,'sine'),120);setTimeout(()=>playSynthSound(554,0.25,'sine'),240);setTimeout(()=>playSynthSound(659,0.5,'sine'),360);
+        addLogEntry(new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),"¡Éxito! Pelota extraída usando flotación de fluidos.","success");
+        triggerConfettiShower();
+        document.getElementById('victory-modal').classList.remove('hidden');
+    }
+
+    /* ═══════════════════════════════════════════════
+       FLUJO DE VICTORIA — Secuencial M4 → M5
+    ═══════════════════════════════════════════════ */
+    function startVictoryFlow(){
+        document.getElementById('victory-celebration').classList.add('hidden');
+        document.getElementById('victory-m4').classList.remove('hidden');
+
+        // Seleccionar contenido de M4 según cuántos fallos tuvo
+        const content=errorCount<=3
+            ? victoryM4Content.fallo3
+            : victoryM4Content.fallo4plus;
+
+        document.getElementById('victory-m4-badge').innerText=content.badge;
+        document.getElementById('victory-m4-whisper').innerHTML=content.whisper.split('\n').map(l=>l?`<span>${l}</span>`:'<br>').join('');
+        document.getElementById('victory-m4-q1').innerText=content.q1;
+        document.getElementById('victory-m4-q2').innerText=content.q2;
+    }
+
+    function advanceToM5(){
+        document.getElementById('victory-m4').classList.add('hidden');
+        document.getElementById('victory-m5').classList.remove('hidden');
+        SCORM.saveData({m4_completado:true,m4_input1:document.getElementById('victory-m4-input1').value,m4_input2:document.getElementById('victory-m4-input2').value});
+    }
+
+    function resetRetoFromVictory(){
+        document.getElementById('victory-modal').classList.add('hidden');
+        // Resetear vista interna del modal de victoria
+        document.getElementById('victory-celebration').classList.remove('hidden');
+        document.getElementById('victory-m4').classList.add('hidden');
+        document.getElementById('victory-m5').classList.add('hidden');
+        const ball=document.getElementById('tennis-ball');
+        ball.classList.remove('hidden');ball.style.transition="";ball.style.transform="";ball.style.opacity="";
+        waterLevel=0;isBallExtracted=false;updateBallPosition();clearEnsemble();
+    }
+
+    function goToReflectionFromVictory(){
+        SCORM.saveData({reto_resuelto:true,reto_tiempo:new Date().toISOString(),total_fallos_final:errorCount,m5_input1:document.getElementById('victory-m5-input1').value,m5_input2:document.getElementById('victory-m5-input2').value,m5_input3:document.getElementById('victory-m5-input3').value});
+        if(!areAllCanvasComplete()){showCanvasPendingModal();return;}
+        proceedToReflection();
+    }
+
+    function enableReflectionChallenge(){
+        const btn=document.getElementById('btn-toggle-reflections');
+        btn.disabled=false;btn.className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl transition-all text-xs flex items-center gap-2";
+        btn.innerHTML='<i class="ph-light ph-eye"></i> Ver Reflexiones Finales';
+    }
+
+    /* ═══════════════════════════════════════════════
+       CANVAS & REFLEXIÓN
+    ═══════════════════════════════════════════════ */
+    function showCanvasPendingModal(){
+        const list=document.getElementById('canvas-pending-list');
+        const names={1:'Movimiento 1 — Detente',2:'Movimiento 2 — Genera tres interpretaciones',3:'Movimiento 3 — Ataca tu explicación favorita',4:'Movimiento 4 — Encuentra una más',5:'Movimiento 5 — Elige conscientemente'};
+        list.innerHTML='';
+        for(let i=1;i<=5;i++){
+            const done=canvasResponses[i]&&canvasResponses[i].length>10;
+            const el=document.createElement('div');
+            el.className=`flex items-center gap-3 p-3 rounded-xl border ${done?'border-emerald-500/30 bg-emerald-500/5':'border-amber-500/30 bg-amber-500/5'}`;
+            el.innerHTML=`<i class="ph-light ${done?'ph-check-circle text-emerald-400':'ph-warning text-amber-400'} text-lg shrink-0"></i><span class="text-sm ${done?'text-slate-400':'text-white font-medium'}">${names[i]}</span>${!done?`<button onclick="closeCanvasPendingModal();selectToolboxModule(${i});toggleToolbox();" class="ml-auto text-[10px] text-amber-400 font-bold hover:text-amber-300">Completar →</button>`:''}`;
+            list.appendChild(el);
+        }
+        document.getElementById('victory-modal').classList.add('hidden');
+        document.getElementById('canvas-pending-modal').classList.remove('hidden');
+    }
+
+    function closeCanvasPendingModal(){document.getElementById('canvas-pending-modal').classList.add('hidden');document.getElementById('victory-modal').classList.remove('hidden');}
+
+    function openCanvasCompleteModal(){
+        document.getElementById('canvas-pending-modal').classList.add('hidden');
+        const content=document.getElementById('canvas-complete-content');content.innerHTML='';
+        const names={1:'Movimiento 1',2:'Movimiento 2',3:'Movimiento 3',4:'Movimiento 4',5:'Movimiento 5'};
+        for(let i=1;i<=5;i++){
+            const done=canvasResponses[i]&&canvasResponses[i].length>10;const data=canvasDatabase[i];
+            const s=document.createElement('div');
+            s.className=`space-y-3 p-4 rounded-2xl border ${done?'border-emerald-500/20 bg-emerald-500/5 opacity-60':'border-slate-700 bg-slate-900'}`;
+            s.innerHTML=`<div class="flex items-center gap-2"><i class="ph-light ${done?'ph-check-circle text-emerald-400':'ph-pencil text-amber-400'} text-base"></i><span class="text-sm font-bold ${done?'text-slate-400':'text-white'}">${names[i]}</span>${done?'<span class="ml-auto text-[10px] text-emerald-400 font-bold">✓ Completado</span>':''}</div>${!done?`<div class="bg-slate-800/60 rounded-xl p-3"><span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Ejemplo del reto</span><p class="text-xs text-slate-400 mt-1 leading-5">${data.example}</p></div><label class="text-xs font-semibold text-slate-300 block">${data.question}</label><textarea id="canvas-modal-input-${i}" rows="3" placeholder="${data.placeholder}" class="w-full text-xs text-white bg-slate-800 border border-slate-700 rounded-xl p-3 resize-none focus:outline-none focus:border-emerald-500 transition-colors leading-6 placeholder:text-slate-600" oninput="saveCanvasEntry(${i},this.value)">${canvasResponses[i]||''}</textarea>`:''}`;
+            content.appendChild(s);
+        }
+        document.getElementById('canvas-complete-modal').classList.remove('hidden');
+    }
+
+    function closeCanvasCompleteModal(){document.getElementById('canvas-complete-modal').classList.add('hidden');document.getElementById('canvas-pending-modal').classList.remove('hidden');}
+    function saveAndContinueFromCanvas(){if(!areAllCanvasComplete()){showCustomAlert('Canvas incompleto','Completa todos los módulos antes de continuar.','info');return;}document.getElementById('canvas-complete-modal').classList.add('hidden');proceedToReflection();}
+    function skipCanvasAndContinue(){document.getElementById('canvas-pending-modal').classList.add('hidden');proceedToReflection();}
+
+    function proceedToReflection(){
+        document.getElementById('victory-modal').classList.add('hidden');
+        showFinal=true;
+        const btn=document.getElementById('btn-toggle-reflections');
+        if(btn)btn.innerHTML='<i class="ph-light ph-eye-slash"></i> Ocultar Reflexiones';
+        const badge=document.getElementById('achievement-badge');
+        if(badge){if(areAllCanvasComplete())badge.classList.remove('hidden');else badge.classList.add('hidden');}
+        changePhase('reflection');
+        setTimeout(()=>{const sp=document.getElementById('solutions-panel');if(sp)sp.classList.remove('hidden');},400);
+        if(areAllCanvasComplete()){SCORM.saveData({curso_completado:true});SCORM.complete();}
+    }
+
+    function addLogEntry(time,message,type){
+        const lc=document.getElementById('log-container');const e=document.createElement('div');
+        const bc=type==='error'?'border-red-500':type==='success'?'border-emerald-500':'border-amber-500';
+        e.className=`p-1.5 rounded bg-slate-950 border-l-2 ${bc} text-slate-300`;
+        e.innerHTML=`<span class="text-[8px] text-slate-500 block">${time}</span> ${message}`;
+        lc.prepend(e);
+    }
+
+    /* ═══════════════════════════════════════════════
+       TOOLBOX
+    ═══════════════════════════════════════════════ */
+    function toggleToolbox(){
+        const s=document.getElementById('toolbox-sidebar'),o=document.getElementById('toolbox-overlay');
+        const open=!s.classList.contains('-translate-x-full');
+        if(open){s.classList.add('-translate-x-full');o.classList.add('hidden');}
+        else{s.classList.remove('-translate-x-full');o.classList.remove('hidden');renderModuleData(currentToolboxModule);}
+    }
+
+    function selectToolboxModule(n){
+        playSfx(440,'sine',0.1);currentToolboxModule=n;
+        for(let i=1;i<=5;i++){const t=document.getElementById(`module-tab-${i}`);if(!t)continue;t.className="py-3 px-5 text-sm rounded-xl transition-all text-center tracking-[0.03em] text-[#6d6a66] hover:text-[#44685a] font-medium";if(i===n)t.className="py-3 px-5 text-sm rounded-xl transition-all text-center tracking-[0.03em] bg-[#2d5a47] text-[#f8f5ef] shadow-sm font-semibold";}
+        const cd=document.getElementById('toolbox-dynamic-content');
+        if(cd){cd.style.opacity=0;cd.style.transform="translateY(5px)";setTimeout(()=>{renderModuleData(n);cd.style.opacity=1;cd.style.transform="translateY(0px)";},250);}
+        SCORM.saveData({[`modulo_${n}_consultado`]:true,[`modulo_${n}_tiempo`]:new Date().toISOString()});
+    }
+
+    function renderModuleData(num){
+        const data=toolboxDatabase[num];if(!data)return;
+        document.getElementById('tb-module-badge').innerText=`0${num}`;document.getElementById('tb-subtitle').innerText=data.subtitle;document.getElementById('tb-title').innerText=data.title;document.getElementById('tb-bloom-badge').innerText=data.bloom;
+        document.getElementById('tb-intro-title').innerText=data.introTitle;document.getElementById('tb-intro-desc').innerText=data.introDesc;
+        const ca=document.getElementById('tb-cards-area');
+        if(ca){ca.innerHTML=`<span class="text-[15px] font-semibold tracking-[0.08em] text-[#44685a] block">${data.cardsLabel}</span>`;const cg=document.createElement('div');cg.className="grid grid-cols-1 md:grid-cols-3 gap-4";data.cards.forEach(card=>{const el=document.createElement('div');const ci=Array.from(cg.children).length;el.className="p-5 bg-[#fdfbf7] border border-[#ddd6cb] rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-2";el.innerHTML=`<div class="flex items-center gap-2 mb-1"><span class="w-6 h-6 rounded-full bg-[#44685a] text-[#f8f5ef] flex items-center justify-center font-semibold text-[11px] shrink-0">${ci+1}</span><h4 class="text-[15px] font-semibold text-[#2b2b2b]">${card.title}</h4></div><p class="text-[14px] text-[#5f5a54] leading-7">${card.desc}</p>`;cg.appendChild(el);});ca.appendChild(cg);}
+        renderMatrixTable();
+        const ts=document.getElementById('tb-matrix-test-section');if(ts){if(data.matrixTest){ts.style.display='block';renderMatrixTestTable();}else ts.style.display='none';}
+        const tl=document.getElementById('tb-tool-list');
+        if(tl){document.getElementById('tb-tool-title').innerText=data.toolTitle;tl.innerHTML='';data.toolSteps.forEach(step=>{const el=document.createElement('li');el.className="flex gap-4";el.innerHTML=`<span class="w-6 h-6 rounded-full bg-[#44685a] text-[#f8f5ef] flex items-center justify-center font-semibold shrink-0 text-[12px]">${step.num}</span><div><h5 class="font-semibold text-[#2b2b2b] text-[15px]">${step.title}</h5><p class="text-[15px] mt-1 leading-7 text-[#5f5a54]">${step.desc}</p></div>`;tl.appendChild(el);});}
+        const tc=document.getElementById('tb-transition-card');if(tc)tc.innerText=`"${data.transitionText}"`;
+        renderCanvasSection(num);
+    }
+
+    function renderMatrixTable(){
+        const data=toolboxDatabase[currentToolboxModule].matrix[activeInfographicTab];const table=document.getElementById('tb-matrix-table');if(!table||!data)return;table.innerHTML='';
+        const thead=document.createElement('thead');const tr=document.createElement('tr');tr.className="bg-[#e7e2d8] text-[#6d675f] border-b border-[#d8d2c8]";data.headers.forEach(h=>{const th=document.createElement('th');th.className="p-4 text-[12px] tracking-[0.08em] font-semibold";th.innerText=h;tr.appendChild(th);});thead.appendChild(tr);table.appendChild(thead);
+        const tbody=document.createElement('tbody');tbody.className="divide-y divide-[#ddd6cb] text-[15px] text-[#5f5a54]";
+        data.rows.forEach(row=>{const tr=document.createElement('tr');row.forEach((cell,i)=>{const td=document.createElement('td');td.className="p-4 leading-8";if(i===0)td.className+=" font-semibold text-[#2b2b2b]";else if(i===row.length-1)td.className+=" text-[#4d7a66] font-medium";td.innerText=cell;tr.appendChild(td);});tbody.appendChild(tr);});
+        table.appendChild(tbody);
+    }
+
+    function renderMatrixTestTable(){
+        const md=toolboxDatabase[currentToolboxModule];if(!md.matrixTest)return;const data=md.matrixTest[activeInfographicTab];const table=document.getElementById('tb-matrix-test-table');if(!table||!data)return;table.innerHTML='';
+        const thead=document.createElement('thead');const tr=document.createElement('tr');tr.className="bg-[#e7e2d8] text-[#6d675f] border-b border-[#d8d2c8]";data.headers.forEach(h=>{const th=document.createElement('th');th.className="p-4 text-[12px] tracking-[0.08em] font-semibold text-left";th.innerText=h;tr.appendChild(th);});thead.appendChild(tr);table.appendChild(thead);
+        const tbody=document.createElement('tbody');tbody.className="divide-y divide-[#ddd6cb] text-[15px] text-[#5f5a54]";data.rows.forEach(row=>{const tr=document.createElement('tr');row.forEach((cell,i)=>{const td=document.createElement('td');td.className="p-4 leading-7";if(i===0)td.className+=" font-semibold text-[#2b2b2b]";if(i===row.length-1)td.className+=" text-[#4d7a66] font-medium";td.innerText=cell;tr.appendChild(td);});tbody.appendChild(tr);});table.appendChild(tbody);
+    }
+
+    function toggleInfographicTab(target){
+        playSfx(480,'sine',0.08);activeInfographicTab=target;
+        document.getElementById('btn-tab-challenge').className="px-4 py-2 text-sm rounded-xl font-medium text-[#6d6a66] transition-colors";document.getElementById('btn-tab-job').className="px-4 py-2 text-sm rounded-xl font-medium text-[#6d6a66] transition-colors";
+        if(target==='challenge')document.getElementById('btn-tab-challenge').className="px-4 py-2 text-sm rounded-xl font-semibold bg-[#7d9888] text-[#f8f5ef] shadow-sm transition-colors";
+        else document.getElementById('btn-tab-job').className="px-4 py-2 text-sm rounded-xl font-semibold bg-[#7d9888] text-[#f8f5ef] shadow-sm transition-colors";
+        renderMatrixTable();if(toolboxDatabase[currentToolboxModule].matrixTest)renderMatrixTestTable();
+    }
+
+    function toggleTestTab(target){
+        activeInfographicTab=target;
+        document.getElementById('btn-tab-test-challenge').className="px-4 py-2 text-sm rounded-xl font-medium text-[#6d6a66] transition-colors";document.getElementById('btn-tab-test-job').className="px-4 py-2 text-sm rounded-xl font-medium text-[#6d6a66] transition-colors";
+        if(target==='challenge')document.getElementById('btn-tab-test-challenge').className="px-4 py-2 text-sm rounded-xl font-semibold bg-[#7d9888] text-[#f8f5ef] shadow-sm transition-colors";
+        else document.getElementById('btn-tab-test-job').className="px-4 py-2 text-sm rounded-xl font-semibold bg-[#7d9888] text-[#f8f5ef] shadow-sm transition-colors";
+        renderMatrixTestTable();
+    }
+
+    /* ═══════════════════════════════════════════════
+       CANVAS
+    ═══════════════════════════════════════════════ */
+    const canvasDatabase={
+        1:{example:"Vasos de vidrio — etiqueta: 'para beber'. Propiedades reales: volumen, forma cilíndrica, impermeabilidad, resistencia.",question:"¿Qué recurso de tu trabajo estás evaluando por su etiqueta en lugar de sus propiedades reales?",placeholder:"Recurso / Activo: ...\nEtiqueta que le das hoy: ...\nPropiedades reales: ..."},
+        2:{example:"Síntoma: la pelota está atrapada. Fricción: todos los intentos atacan la distancia. Raíz: las condiciones del cilindro no han cambiado.",question:"Piensa en un problema actual. ¿Cuál es el síntoma visible, la fricción y la raíz real?",placeholder:"Síntoma visible: ...\nFricción — dónde se estanca: ...\nRaíz estructural: ..."},
+        3:{example:"Categorías del reto: Alcance (gancho, regla, cuerda) · Agarre (gancho, clip) · Desplazamiento (vasos, cuerda).",question:"Ante un problema tuyo, ¿en qué categorías agruparías las posibles causas?",placeholder:"Categoría 1 — nombre y variables: ...\nCategoría 2 — nombre y variables: ...\nCategoría 3 — nombre y variables: ..."},
+        4:{example:"Evidencia acumulada: ningún objeto sólido funcionó. Decisión: cambiar de categoría sin esperar certeza total.",question:"¿Qué evidencia tienes ya que te permitiría tomar una decisión diferente hoy?",placeholder:"Situación actual: ...\nLo que el cerebro quiere (certeza): ...\nLo que el solucionador haría: ..."},
+        5:{example:"Pregunta tradicional: ¿cómo llego hasta la pelota? Replanteada: ¿cómo hago que la pelota suba sola hacia mí?",question:"¿Qué pregunta has estado haciendo sobre un problema tuyo? ¿Cómo la replantearías?",placeholder:"Pregunta tradicional: ...\nPregunta replanteada: ..."}
+    };
+    const canvasResponses={1:'',2:'',3:'',4:'',5:''};
+
+    function renderCanvasSection(n){const data=canvasDatabase[n];if(!data)return;document.getElementById('tb-canvas-example').innerText=data.example;document.getElementById('tb-canvas-question').innerText=data.question;const inp=document.getElementById('tb-canvas-input');inp.placeholder=data.placeholder;inp.value=canvasResponses[n]||'';updateCanvasStatus(n);}
+    function saveCanvasEntry(n,v){canvasResponses[n]=v.trim();updateCanvasStatus(n);if(v.trim().length>10)SCORM.saveData({[`canvas_modulo_${n}`]:true,[`canvas_modulo_${n}_respuesta`]:v.trim()});}
+    function updateCanvasStatus(n){const s=document.getElementById('tb-canvas-status');if(!s)return;const done=canvasResponses[n]&&canvasResponses[n].length>10;s.innerText=done?'✓ Completado':'Sin completar';s.className=done?'text-[11px] font-medium text-[#44685a]':'text-[11px] font-medium text-[#9a9690]';}
+    function areAllCanvasComplete(){return Object.values(canvasResponses).every(v=>v&&v.length>10);}
+
+    /* ═══════════════════════════════════════════════
+       PIZARRA DE REFLEXIÓN
+    ═══════════════════════════════════════════════ */
+    const reflectionQuestions=["¿Cómo se siente trabajar con restricciones que parecen imposibles?","¿Qué pasaría si cambiáramos la escala de uno de los objetos en la mesa?","¿Qué suposición inicial hemos tenido que descartar para avanzar?","¿Cómo influye el entorno físico en la forma en que resolvemos el problema?","¿Qué detalle pequeño estamos ignorando que podría ser la clave?"];
+    let stickyNotes=[{id:101,text:"Explorar la idea de conectar elementos dispares.",type:'help'},{id:102,text:"Considerar el tiempo como un recurso limitado.",type:'help'}];
+    let finalReflections=[{id:1,text:"Creímos que uniendo clips lograríamos un gancho largo, pero la pelota no tiene de dónde ser enganchada.",type:'final'},{id:2,text:"La clave fue mirar el rincón del dispensador. Acarrear agua fría con los vasos era el camino más directo.",type:'final'},{id:3,text:"Los líquidos calientes también podían funcionar, pero requerían servilletas como aislante térmico.",type:'final'}];
+    let showFinal=false;
+
+    function setRandomQuestion(){const el=document.getElementById('random-question');el.innerText=`"${reflectionQuestions[Math.floor(Math.random()*reflectionQuestions.length)]}"`;}
+
+    function renderStickyNotes(){
+        const board=document.getElementById('sticky-board');if(!board)return;board.innerHTML='';
+        stickyNotes.forEach(note=>{const el=document.createElement('div');el.className="p-4 rounded-xl shadow-md bg-amber-100 text-amber-950 flex flex-col justify-between min-h-[120px] transition-all";el.innerHTML=`<p class="text-xs font-medium">${note.text}</p><button onclick="deleteStickyNote(${note.id})" class="text-[10px] text-red-600 mt-2 self-end font-bold uppercase">Eliminar</button>`;board.appendChild(el);});
+        if(showFinal){finalReflections.forEach(note=>{const el=document.createElement('div');el.className="p-4 rounded-xl shadow-lg bg-slate-800 border border-emerald-500 text-emerald-100 flex flex-col justify-between min-h-[120px]";el.innerHTML=`<p class="text-xs font-bold italic">Reflexión Final:</p><p class="text-xs font-medium">${note.text}</p>`;board.appendChild(el);});}
+    }
+
+    function toggleFinalReflections(){showFinal=!showFinal;const btn=document.getElementById('btn-toggle-reflections');btn.innerHTML=showFinal?'<i class="ph-light ph-eye-slash"></i> Ocultar Reflexiones':'<i class="ph-light ph-eye"></i> Ver Reflexiones Finales';renderStickyNotes();}
+    function addStickyNote(){const v=document.getElementById('note-text').value.trim();if(!v)return;stickyNotes.push({id:Date.now(),text:v,type:'help'});document.getElementById('note-text').value='';renderStickyNotes();}
+    function deleteStickyNote(id){stickyNotes=stickyNotes.filter(n=>n.id!==id);renderStickyNotes();}
+    function exportStickyNotes(){let o="=== REFLEXIONES GRUPALES ===\n\n";stickyNotes.forEach((n,i)=>{o+=`${i+1}. "${n.text}"\n\n`;});const ta=document.createElement("textarea");ta.value=o;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);showCustomAlert("¡Copiado!","Las reflexiones se copiaron en tu portapapeles.","success");}
+
+    function downloadCanvasPDF(){
+        const{jsPDF}=window.jspdf;const doc=new jsPDF();
+        const verde=[68,104,90],oscuro=[29,29,29],gris=[95,94,90],fondo=[248,245,239];
+        const names={1:'Movimiento 1 — Detente',2:'Movimiento 2 — Genera tres interpretaciones',3:'Movimiento 3 — Ataca tu explicación favorita',4:'Movimiento 4 — Encuentra una más',5:'Movimiento 5 — Elige conscientemente'};
+        doc.setFillColor(...fondo);doc.rect(0,0,210,297,'F');doc.setFillColor(...verde);doc.rect(0,0,210,28,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text('PENSAMIENTO ESTRATÉGICO APLICADO A RESOLUCIÓN DE PROBLEMAS',15,10);doc.setFontSize(16);doc.text('Matriz de Deconstrucción de Problemas Complejos',15,20);
+        doc.setTextColor(...gris);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text('Canvas MDPC — Completado por el participante',15,34);
+        let y=44;
+        for(let i=1;i<=5;i++){
+            const resp=canvasResponses[i]||'Sin completar';if(y>240){doc.addPage();doc.setFillColor(...fondo);doc.rect(0,0,210,297,'F');y=20;}
+            doc.setFillColor(...verde);doc.roundedRect(15,y,180,7,1,1,'F');doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text(names[i],18,y+5);y+=11;
+            doc.setTextColor(...gris);doc.setFontSize(7);doc.setFont('helvetica','bold');doc.text('EJEMPLO DEL RETO:',15,y);y+=4;doc.setFont('helvetica','normal');const el=doc.splitTextToSize(canvasDatabase[i].example,175);doc.text(el,15,y);y+=el.length*4+4;
+            doc.setTextColor(...oscuro);doc.setFont('helvetica','bold');doc.setFontSize(8);const ql=doc.splitTextToSize(canvasDatabase[i].question,175);doc.text(ql,15,y);y+=ql.length*4+3;
+            doc.setFillColor(255,255,255);const rl=doc.splitTextToSize(resp,170);const bh=Math.max(rl.length*5+8,16);doc.roundedRect(15,y,180,bh,2,2,'F');doc.setDrawColor(...verde);doc.setLineWidth(0.3);doc.roundedRect(15,y,180,bh,2,2,'S');doc.setTextColor(...oscuro);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(rl,19,y+6);y+=bh+8;
+        }
+        doc.setFillColor(...verde);doc.rect(0,280,210,17,'F');doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','normal');doc.text('Eilyn Ginoe Brito · Diseñadora de Experiencias de Aprendizaje · 2026',15,290);doc.text('Extracción Creativa · Actividad de Pensamiento Estratégico',130,290);
+        doc.save('Canvas_MDPC_Completado.pdf');showCustomAlert('Canvas descargado','Tu Canvas MDPC se descargó correctamente.','success');
+    }
+
+    window.onload=function(){renderStickyNotes();updateBallPosition();initLupaEffect();renderModuleData(currentToolboxModule);setRandomQuestion();};
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/scorm-again@1.8.0/dist/scorm-again.min.js"></script>
+</body>
+</html>
